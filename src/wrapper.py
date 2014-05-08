@@ -1,5 +1,6 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
+
 
 from subprocess import *
 import os
@@ -23,14 +24,14 @@ import logging
 Show the usage
 """
 def help():
-	print("""wrapper.py [args]
+	print("""wrapper.py [args] {command}
+
+	command			Command to start the minecraft jar
 
 Arguments:
 	-h --help		Shows this output
 	-s {socketfile}		Change the socketfile 
 				(default: /tmp/mcwrapper.socket)
-	-c {cmd}		Command to start the minecraft jar
-	--command {cmd}		Same as -c
 	-l {loglevel}		Change the loglevel (5-1) (Default: 2)
 
 Loglevels:
@@ -49,37 +50,41 @@ Main method
 """
 def main(argv):
 	## default values
-	mccommand = "java -Xmx1024M -Xms1024M -jar minecraft_server.1.7.9.jar nogui"
+	mccommand = "java -Xmx1024M -Xms1024M -jar minecraft_server.jar nogui"
 	socket = "/tmp/mcwrapper.socket"
 	linebreak = "\n"
-	loglevel = 20
+	loglevel = 10
+
+	if len(argv) < 1:
+		help()
 
 	## getopt
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hc:s:l:", ["help", "command=", "socket=" ] )
+		opts, args = getopt.getopt(argv, "hs:l:", ["help", "socket=" ] )
 	except getopt.GetoptError:
 		help()
 
 	for opt, arg in opts:
 		
-		if opt in ("-h", "--help"):
+		if opt == ("-h", "--help"):
 			help()
-		elif opt in ("-c", "--command"):
-			mccommand = arg
 		elif opt in ("-s", "--socket"):
 			socket = arg
 		elif opt in ("-l"):
 			loglevel = int(arg) * 10
 
+	mccommand = argv[-1]
 
 	logging.basicConfig(level=loglevel)
 
 	wrapper = Wrapper(mccommand, socket, linebreak)
 	wrapper.start()
 
-
-
+"""
+Provides a unix socket to communicate with clients and exchance messages between 
+them and the wrapper
+"""
 class Broadcaster(object):
 
 	def __init__(self, wrapper, socketaddr, linebreak):
@@ -141,9 +146,9 @@ class Broadcaster(object):
 				else:
 					# Data recieved from client
 					try:
-						data = sock.recv(self.buffersize)
-						#data = data.decode("utf-8")
+						data = unicode( sock.recv(self.buffersize) , errors='replace')
 						self.read(data)
+
 					except:
 						self.log.debug("client disconnected [read]")
 						self.log.debug( traceback.print_exc(file=sys.stdout) )
@@ -152,15 +157,9 @@ class Broadcaster(object):
 						continue
 
 					if data:
-	     					# The client sends some valid data, process it
-						if data == "q" or data == "Q":
-							self.log.debug("client quits")
-							sock.close()
-							self.connections.remove(sock)
-						else:
-							self.broadcast_data(data) 
+						self.broadcast_data(data) 
 					else:
-						self.log.debug("client disconnected [no data]" % addr)
+						self.log.debug("client disconnected [no data]")
 						sock.close()
 						self.connections.remove(sock)   
 
@@ -168,7 +167,10 @@ class Broadcaster(object):
 	def broadcast_data (self, message):
 		for socket in self.connections:
 			if socket != self.server_socket:
-				socket.send( message.encode("utf-8") + self.linebreak )
+				try:
+					socket.send( message + self.linebreak ) #.encode("utf-8")
+				except:
+					pass
 
 	def read(self, text):
 		""" Text received from a client """
@@ -176,9 +178,6 @@ class Broadcaster(object):
 		if len(text) > 0:
 			self.log.debug("input=%s" % text)
 			self.wrapper.write(text)
-
-
-
 
 class Wrapper(object):
 
@@ -218,9 +217,12 @@ class Wrapper(object):
 
 		""" starts the wrapper """
 		self.log.debug("Starting Wrapper... ")
+
+		# XXX: DEBUG:Wrapper:ERROR: parsing Error: Unable to access jarfile minecraft_server.jar.1.7.9
 		self.process = Popen(self.mccommand, stdin=self.sin, stdout=self.sout, stderr=self.serr, cwd=os.getcwd(), shell=True)
 		self.mcrunning = True
 		self.log.debug("Starting Wrapper... done")
+
 		
 		## main loop
 		while self.mcrunning:
@@ -255,6 +257,9 @@ class Wrapper(object):
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
+
+
+
 
 
 
