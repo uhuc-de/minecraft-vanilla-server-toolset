@@ -32,7 +32,8 @@ Arguments:
 	-h --help		Shows this output
 	-s {socketfile}		Change the socketfile 
 				(default: /tmp/mcwrapper.socket)
-	-l {loglevel}		Change the loglevel (5-1) (Default: 2)
+	-l {logfile}		Set the logfile (default: stdout)
+	-v {loglevel}		Change the loglevel (5-1) (Default: 2)
 
 Loglevels:
 	CRITICAL	5
@@ -40,7 +41,6 @@ Loglevels:
 	WARNING		3
 	INFO		2
 	DEBUG		1
-
 """)	
 	sys.exit(2)
 
@@ -54,6 +54,7 @@ def main(argv):
 	socket = "/tmp/mcwrapper.socket"
 	linebreak = "\n"
 	loglevel = 10
+	logfile = ""
 
 	if len(argv) < 1:
 		help()
@@ -61,8 +62,9 @@ def main(argv):
 	## getopt
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hs:l:", ["help", "socket=", "-"] )
+		opts, args = getopt.getopt(argv, "hs:v:l:", ["help", "socket=", "log=", "-"] )
 	except getopt.GetoptError:
+		print( traceback.print_exc() )
 		help()
 
 	for opt, arg in opts:
@@ -71,17 +73,22 @@ def main(argv):
 			help()
 		elif opt in ("-s", "--socket"):
 			socket = arg
-		elif opt in ("-l"):
+		elif opt in ("-v"):
 			loglevel = int(arg) * 10
+		elif opt in ("-l", "--log"):
+			logfile = arg
 		elif opt in ("---"):
 			mccommand = " ".join( argv[argv.index('---')+1:] )
 
 	if mccommand == "":
-		print ("No command found!")
+		print("No command found!")
 		help()
 
-	logging.basicConfig(level=loglevel)
-	#logging.basicConfig(filename='example.log',level=logging.DEBUG)
+	if logfile == "":
+		logging.basicConfig(level=loglevel)
+	else:
+		logging.basicConfig(filename=logfile,level=loglevel)
+
 	wrapper = Wrapper(mccommand, socket, linebreak)
 	wrapper.start()
 
