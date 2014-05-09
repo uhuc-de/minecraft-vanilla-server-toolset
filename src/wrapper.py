@@ -24,7 +24,7 @@ import logging
 Show the usage
 """
 def help():
-	print("""wrapper.py [args] {command}
+	print("""wrapper.py [args] --- {command}
 
 	command			Command to start the minecraft jar
 
@@ -50,7 +50,7 @@ Main method
 """
 def main(argv):
 	## default values
-	mccommand = "java -Xmx1024M -Xms1024M -jar minecraft_server.jar nogui"
+	mccommand = "" 
 	socket = "/tmp/mcwrapper.socket"
 	linebreak = "\n"
 	loglevel = 10
@@ -61,7 +61,7 @@ def main(argv):
 	## getopt
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hs:l:", ["help", "socket=" ] )
+		opts, args = getopt.getopt(argv, "hs:l:", ["help", "socket=", "-"] )
 	except getopt.GetoptError:
 		help()
 
@@ -73,11 +73,15 @@ def main(argv):
 			socket = arg
 		elif opt in ("-l"):
 			loglevel = int(arg) * 10
+		elif opt in ("---"):
+			mccommand = " ".join( argv[argv.index('---')+1:] )
 
-	mccommand = argv[-1]
+	if mccommand == "":
+		print ("No command found!")
+		help()
 
 	logging.basicConfig(level=loglevel)
-
+	#logging.basicConfig(filename='example.log',level=logging.DEBUG)
 	wrapper = Wrapper(mccommand, socket, linebreak)
 	wrapper.start()
 
@@ -216,7 +220,7 @@ class Wrapper(object):
 		broadcasterThread.start()
 
 		""" starts the wrapper """
-		self.log.debug("Starting Wrapper... ")
+		self.log.debug("Starting Wrapper... (%s)" % self.mccommand)
 
 		# XXX: DEBUG:Wrapper:ERROR: parsing Error: Unable to access jarfile minecraft_server.jar.1.7.9
 		self.process = Popen(self.mccommand, stdin=self.sin, stdout=self.sout, stderr=self.serr, cwd=os.getcwd(), shell=True)
