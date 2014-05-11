@@ -38,46 +38,6 @@ _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
 
 ## METHODS
 
-do_bridge() {
-case "$1" in
-	start)
-		do_bridge_start
-		;;
-	stop)
-		do_bridge_stop
-		;;
-	restart)
-		do_bridge_stop
-		sleep 3
-		do_bridge_start
-		;;
- 	status)
-		do_bridge_status
-		;;
-	*)
-		usage
-		;;
- 
-esac
-}
-
-
-# Starts the irc bridge
-do_bridge_start() {
-	echo -n "Start minecraft-irc-bridge... "
-
-	_BRIDGE_PID="/tmp/bridge_${_INSTANCE}.pid"
-	_BRIDGE_LOG="/tmp/bridge_${_INSTANCE}.log"
-	_BRIDGE_CMD="/media/sonstiges/Projekte/Minecraft/server/ircbridge.py -s $_WRAPPER_SOCKET -l $_BRIDGE_LOG irc.jdqirc.net mc-test"
-
-	start-stop-daemon -n "mcircbridge" --start --background \
-		--user $_MC_USER --group $_MC_GROUP \
-		--pidfile $_BRIDGE_PID --make-pidfile \
-		--chdir $_DIR_SERVER \
-		--exec $_BIN_PYTHON2 -- $_BRIDGE_CMD
-	echo "Done." || echo "Fail."
-
-}
 
 #### TRACER ####
 
@@ -187,6 +147,21 @@ start_saves() {
 	fi
 }
 
+do_whitelist() {
+	echo "Performing backup"
+	do_backup "whitelist"
+
+	for user in $@; do
+		user=`echo $user | tr '[:upper:]' '[:lower:]'`
+		echo "Whitelisting user ,,${user}''"
+		if is_running; then
+			do_control whitelist add ${user}
+			say "Added ,,${user}'' to whitelist."
+		else
+			echo "Couldn't connect to the server!"
+		fi
+	done
+}
 
 
 #### BACKUP ####
@@ -305,6 +280,7 @@ Command:
 	say <msg>		Say <msg> ingame
 	control <cmd>		Sends a raw command to the server
 	update <version>	Update to <version> (eg. 1.5.6)
+	whitelist [<user> ...]	Perform extra backup and add <user> to whitelist
 
 	backup <arg>		Backups the server
 	tracer <arg>		Executes the tracer with <cmd>
@@ -321,8 +297,6 @@ Tracer arguments:
 """
 	exit 1
 }
-
-
 
 
 ## MAIN
@@ -365,10 +339,10 @@ case "$1" in
 		shift
 		do_tracer $@
 		;;	
-	bridge)
+	whitelist)
 		shift
-		do_bridge $@
-		;;
+		do_whitelist $@
+		;;	
 	*)
 		usage
 		;;
