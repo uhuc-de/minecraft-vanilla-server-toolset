@@ -1,33 +1,97 @@
 Minecraft Vanilla Server Toolset
 ================================
 
-... is a compilation of different skripts. This bundle isn't a "all-round 
-carefree package" for wannabe serveradministrators who want an "easy to use" 
-Window where they can click through. If you are familiar with Linux and the 
-Shell you should have no problems to run the skripts and maybe edit them as you 
-want.
-
-Everything in this toolset is released under the terms of the GPL3. You can
-send patches to mvst@noxzed.de.
+The Minecraft Vanilla Server Toolset version 2 (mvst2) is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" Window where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you want.
 
 
-minecraftd.sh
---------------
+Features
+---------------
 
-Depencies:
+* provides 100% vanilla minecraft
+* start/stop the minecraft server like a daemon
+* creates a unix socket to talk to the server
+* backup the map weekly and daily
+* update minecraft easily
+* records the positions of every player in the game and saves them into a sqlite file
 
+
+Download
+-----------------
+
+Visit https://gitorious.org/mvst2/mvst2 to download the source or clone it with git.
+
+
+Dependencies:
+-----------------
+
+Install the dependencies of the toolset:
+
+* python 2.*
+* perl >= 2.5.10
+* perl-curses
+* perl-io-interactive
+* perl-io-tty 
+* perl-term-readkey
+* perl-yaml
 * start-stop-daemon
 * tar
 * wget 
+* cron
+* nbt (https://github.com/twoolie/NBT)
 
-Description:
 
-This skript manages the whole mvst, like starting/stopping the wrapper, updating minecraft jars and backup everything.
-Make sure you set the variables right at the beginning in the file minecraft.sh
+Configuration:
+-------------------
+
+Make minecraftd.sh executable:
+
+	chmod +x minecraftd.sh
+
+Change the global variables in minecraftd.sh to your needs:
+
+	_DIR_SERVER		should point to the directory of the minecraft server
+	_DIR_BACKUP		should point to your minecraft backup directory
+	_DIR_MVSTBIN	inside this directory the mvst skripts should be found
+	_DIR_TMP		point to your temporary directory
+	_DIR_LOGS		inside this directory the logs are going to be found
+
+	_INSTANCE		is the name of your world (same as "level-name" in server.properties)
+	_MC_USER		the user who should own/run the server
+	_MC_GROUP		the group of the server
+
+	_CLIENT_JAR		points to the minecraft.jar of the client
+
+Change at the end of control.pm the socket to the value of "_WRAPPER_SOCKET" in minecrafd.sh:
+
+	    - '/tmp/mcwrapper.socket / UNIX'
+
+To test your settings, start the server, stop it with a command and check the logs:
+
+	$ minecraftd.sh start
+	$ minecraftd.sh control stop
+	$ less logs/wrapper_default.log
+
+### Log player positions
+
+If you want to log the movements of every player on your server you should add to your crontab:
+
+	*/1 * * * * /path/to/minecraftd.sh tracer log
+
+The variable "_TRACER_DATABASE" is the place of the records. The default file is "tracer_data.sqlite" inside the map directory. If you want to read out the position records you should use tracer-client.py.
+
+### backup automaticly
+
+Write to the crontab:
+
+	0 0 * * * /path/to/minecraftd.sh backup daily
+	59 23 * * 0 /path/to/minecraftd.sh backup weekly
+
 
 Usage:
+------------------
 
-	Usage: minecraft.sh {command}
+
+	minecraft.sh {command}
 
 	Command:
 		start			Starts the server
@@ -40,7 +104,7 @@ Usage:
 		update <version>	Update to <version> (eg. 1.5.6)
 
 		backup <arg>		Backups the server
-		tracer <arg>		Executes the tracer with <cmd>
+		tracer <arg>		Executes the tracer with <arg>
 
 	Backup arguments:
 		daily			Perform the daily backup
@@ -53,87 +117,23 @@ Usage:
 
 
 
-wrapper.py
-------------
-
-Depencies:
-
-* python 2.*
 
 
-Description:
+#### tracer-client.py
 
-Starts the Minecraftserver and provides a unix-socket for incomming client connections. It broadcasts the output from the minecraft_server.jar to the clients and forward every input from a client to the Server.
-
-
-Usage: 
-
-	wrapper.py --help
-
-
-
-control.pm
-----------
-
-Depencies:
-
-* perl >= 2.5.10
-* perl-curses
-* perl-io-interactive
-* perl-io-tty 
-* perl-term-readkey
-* perl-yaml
-
-
-
-
-
-tracer.py
-----------
-
-
-Depencies:
-
-* python 2.*
-* nbt (https://github.com/twoolie/NBT)
-* cron
-
-
-Description:
-
-This tool gets the position of every Player on the server and saves it in a database. There won't be a record, if the player doesn't move.
-
-Usage:
-
-	python2 tracer.py 
-
-Installation:
-
-You have to run:
-	$ python2 /path/to/playerlog.py install path/to/the/db.sql
-This will create database and table for the records.
-
-You need to add the line 
-	 */1 * * * * python2 /path/to/tracer.py log mcmap/playerdata/ mc/db.sqlite
-to the crontab.
-
-
-tracer-client.py
------------------
-
-Depencies: 
-
-* python 2.*
+With this client you can query the sqlitefiles with the positions from "minecraftd.sh tracer log" (tracer.py) easily.
 	
-Description:
-
-A client to query the tracer.py SQLitefiles easily.
-	
-
-Usage:
-
 	python2 tracer-client.py --help
 
 
 
+Multiple instances:
+-------------------
 
+If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh and just need to change the variables "_DIR_SERVER", "_INSTANCE" and "_DIR_BACKUP".
+
+
+
+
+
+Everything in this toolset is released under the terms of the GPL3. You can send patches to mvst@noxzed.de or merge requests on gitorious.
