@@ -1,8 +1,12 @@
 #!/bin/sh
 
+# depends: wget, tar
+
 #### VARIABLES ####
 
 ## Primary variables
+
+_INSTANCE="default"
 
 MAINDIR="/home/minecraft"
 _DIR_SERVER="${MAINDIR}/server"
@@ -11,20 +15,21 @@ _DIR_MVSTBIN="${MAINDIR}/bin"
 _DIR_TMP="${MAINDIR}/tmp"
 _DIR_LOGS="${MAINDIR}/logs"
 
-_MAPNAME="world"
 _MC_USER="minecraft"
 _MC_GROUP="minecraft"
 
-_CLIENT_JAR="/home/${_MC_USER}/.minecraft/bin/minecraft.jar"
+_CLIENT_JAR="/home/minecraft/.minecraft/bin/minecraft.jar"
 
-_BIN_PERL="/usr/bin/perl"
-_BIN_PYTHON2="/usr/bin/python2"
+_BIN_PERL=`which perl`
+_BIN_PYTHON2=`which python2`
 
 ## Secondary variables
 
-_WRAPPER_SOCKET="${_DIR_TMP}/wrapper.socket"
-_WRAPPER_PID="${_DIR_TMP}/wrapper.pid"
-_WRAPPER_LOG="${_DIR_LOGS}/wrapper.log"
+_MAPNAME=$(grep "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
+
+_WRAPPER_SOCKET="${_DIR_TMP}/wrapper_${_INSTANCE}.socket"
+_WRAPPER_PID="${_DIR_TMP}/wrapper_${_INSTANCE}.pid"
+_WRAPPER_LOG="${_DIR_LOGS}/wrapper_${_INSTANCE}.log"
 _WRAPPER_CMD="${_DIR_MVSTBIN}/wrapper.py -s $_WRAPPER_SOCKET -l $_WRAPPER_LOG --- java -jar minecraft_server.jar nogui"
 
 _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
@@ -32,6 +37,47 @@ _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
 
 
 ## METHODS
+
+do_bridge() {
+case "$1" in
+	start)
+		do_bridge_start
+		;;
+	stop)
+		do_bridge_stop
+		;;
+	restart)
+		do_bridge_stop
+		sleep 3
+		do_bridge_start
+		;;
+ 	status)
+		do_bridge_status
+		;;
+	*)
+		usage
+		;;
+ 
+esac
+}
+
+
+# Starts the irc bridge
+do_bridge_start() {
+	echo -n "Start minecraft-irc-bridge... "
+
+	_BRIDGE_PID="/tmp/bridge_${_INSTANCE}.pid"
+	_BRIDGE_LOG="/tmp/bridge_${_INSTANCE}.log"
+	_BRIDGE_CMD="/media/sonstiges/Projekte/Minecraft/server/ircbridge.py -s $_WRAPPER_SOCKET -l $_BRIDGE_LOG irc.jdqirc.net mc-test"
+
+	start-stop-daemon -n "mcircbridge" --start --background \
+		--user $_MC_USER --group $_MC_GROUP \
+		--pidfile $_BRIDGE_PID --make-pidfile \
+		--chdir $_DIR_SERVER \
+		--exec $_BIN_PYTHON2 -- $_BRIDGE_CMD
+	echo "Done." || echo "Fail."
+
+}
 
 #### TRACER ####
 
@@ -125,18 +171,18 @@ say() {
 suspend_saves() {
 	id=$1
 	shift
-	if test '(' `find "$_DIR_TMP" -iname "${_MAPNAME}-save-lock-*" | wc -l` == 0 ')'; then
+	if test '(' `find "$_DIR_TMP" -iname "${_INSTANCE}-save-lock-*" | wc -l` == 0 ')'; then
 		do_control "save-off"
 		do_control "save-all"
 	fi
-	touch "$_DIR_TMP/${_MAPNAME}-save-lock-$id"
+	touch "$_DIR_TMP/${_INSTANCE}-save-lock-$id"
 }
 
 start_saves() {
 	id=$1
 	shift
-	[[ -f "${_DIR_TMP}/${_MAPNAME}-save-lock-$id" ]] && rm "${_DIR_TMP}/${_MAPNAME}-save-lock-$id"
-	if test '(' `find "${_DIR_TMP}" -iname "${_MAPNAME}-save-lock-*" | wc -l` == 0 ')'; then
+	[[ -f "${_DIR_TMP}/${_INSTANCE}-save-lock-$id" ]] && rm "${_DIR_TMP}/${_INSTANCE}-save-lock-$id"
+	if test '(' `find "${_DIR_TMP}" -iname "${_INSTANCE}-save-lock-*" | wc -l` == 0 ')'; then
 		do_control "save-on"
 	fi
 }
@@ -319,6 +365,10 @@ case "$1" in
 		shift
 		do_tracer $@
 		;;	
+	bridge)
+		shift
+		do_bridge $@
+		;;
 	*)
 		usage
 		;;

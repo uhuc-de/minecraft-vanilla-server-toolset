@@ -57,6 +57,7 @@ wrapper.py
 ------------
 
 Depencies:
+
 * python 2.*
 
 
@@ -100,7 +101,7 @@ Depencies:
 
 Description:
 
-This tool gets the position of every Player on the server and saves it  in a database. There won't be a record, if the player doesn't move.
+This tool gets the position of every Player on the server and saves it in a database. There won't be a record, if the player doesn't move.
 
 Usage:
 
@@ -109,11 +110,11 @@ Usage:
 Installation:
 
 You have to run:
->	$ python2 /path/to/playerlog.py install path/to/the/db.sql
+	$ python2 /path/to/playerlog.py install path/to/the/db.sql
 This will create database and table for the records.
 
 You need to add the line 
-> */1 * * * * python2 /path/to/tracer.py log mcmap/playerdata/ mc/db.sqlite
+	 */1 * * * * python2 /path/to/tracer.py log mcmap/playerdata/ mc/db.sqlite
 to the crontab.
 
 
