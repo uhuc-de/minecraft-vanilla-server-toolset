@@ -61,7 +61,7 @@ Change the global variables in minecraftd.sh to your needs:
 
 	_CLIENT_JAR		points to the minecraft.jar of the client
 
-Change at the end of control.pm the socket to the value of "_WRAPPER_SOCKET" in minecrafd.sh:
+Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" in minecrafd.sh:
 
 	    - '/tmp/mcwrapper.socket / UNIX'
 
@@ -77,7 +77,7 @@ If you want to log the movements of every player on your server you should add t
 
 	*/1 * * * * /path/to/minecraftd.sh tracer log
 
-The variable "_TRACER_DATABASE" is the place of the records. The default file is "tracer_data.sqlite" inside the map directory. If you want to read out the position records you should use tracer-client.py.
+The variable "\_TRACER\_DATABASE" is the place of the records. The default file is "tracer\_data.sqlite" inside the map directory. If you want to read out the position records you should use tracer-client.py.
 
 ### backup automatically
 
@@ -130,7 +130,7 @@ With this client you can query the sqlitefiles with the positions from "minecraf
 Multiple instances:
 -------------------
 
-If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh and just need to change the variables "_DIR_SERVER", "_INSTANCE" and "_DIR_BACKUP".
+If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh and just need to change the variables "\_DIR\_SERVER", "\_INSTANCE" and "\_DIR\_BACKUP".
 
 
 
