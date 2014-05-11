@@ -79,7 +79,7 @@ If you want to log the movements of every player on your server you should add t
 
 The variable "_TRACER_DATABASE" is the place of the records. The default file is "tracer_data.sqlite" inside the map directory. If you want to read out the position records you should use tracer-client.py.
 
-### backup automaticly
+### backup automatically
 
 Write to the crontab:
 
