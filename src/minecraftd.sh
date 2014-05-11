@@ -1,46 +1,282 @@
 #!/bin/sh
 
-## VARIABLES
+#### VARIABLES ####
 
-_MCDIR="/home/minecraft/"
-_MAPNAME=world
+## Primary variables
 
+MAINDIR="/home/minecraft"
+_DIR_SERVER="${MAINDIR}/server"
+_DIR_BACKUP="${MAINDIR}/backup"
+_DIR_MVSTBIN="${MAINDIR}/bin"
+_DIR_TMP="${MAINDIR}/tmp"
+_DIR_LOGS="${MAINDIR}/logs"
+
+_MAPNAME="world"
 _MC_USER="minecraft"
 _MC_GROUP="minecraft"
 
-_WRAPPER_JAVA_CMD="java -jar minecraft_server.jar nogui"
-_WRAPPER_SOCKET="/tmp/mcwrapper.socket"
-_WRAPPER_LOG="/tmp/wrapper.log"
-_WRAPPER_PID="/tmp/wrapper.pid"
-_WRAPPER_CMD="/home/minecraft/wrapper.py -s $_WRAPPER_SOCKET -l $_WRAPPER_LOG --- $_WRAPPER_JAVA_CMD"
+_CLIENT_JAR="/home/${_MC_USER}/.minecraft/bin/minecraft.jar"
+
+_BIN_PERL="/usr/bin/perl"
+_BIN_PYTHON2="/usr/bin/python2"
+
+## Secondary variables
+
+_WRAPPER_SOCKET="${_DIR_TMP}/wrapper.socket"
+_WRAPPER_PID="${_DIR_TMP}/wrapper.pid"
+_WRAPPER_LOG="${_DIR_LOGS}/wrapper.log"
+_WRAPPER_CMD="${_DIR_MVSTBIN}/wrapper.py -s $_WRAPPER_SOCKET -l $_WRAPPER_LOG --- java -jar minecraft_server.jar nogui"
+
+_TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
+
 
 
 ## METHODS
 
+#### TRACER ####
+
+do_tracer() {
+case "$1" in
+	log)
+		do_tracer_log
+		;;
+	clean)
+		do_tracer_clean
+		;;
+	*)
+		usage
+		;;
+ esac
+}
+
+do_tracer_log() {
+	tracerdb="${_TRACER_DATABASE}"
+	playerdata="${_DIR_SERVER}/${_MAPNAME}/playerdata/"
+
+	if [[ ! -f $tracerdb ]]; then
+		echo "Tracer database not found... creates it."
+		$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py install $tracerdb
+	fi
+	$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py log "$playerdata" "$tracerdb"
+}
+
+do_tracer_clean() {
+	if [[ -f $tracerdb ]]; then
+		$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py clean "$tracerdb"
+	fi
+}
+
+
+
+
+#### WRAPPER ####
+
 # Starts the wrapper
 do_start () {
-	echo "Start minecraft-server..."
+	echo -n "Start minecraft-server... "
 
 	start-stop-daemon -n "mcwrapper" --start --background \
 		--user $_MC_USER --group $_MC_GROUP \
 		--pidfile $_WRAPPER_PID --make-pidfile \
-		--chdir $_MCDIR \
-		--exec /usr/bin/python2 -- $_WRAPPER_CMD
+		--chdir $_DIR_SERVER \
+		--exec $_BIN_PYTHON2 -- $_WRAPPER_CMD
 	echo "Done." || echo "Fail."
 }
 
 # Stops the wrapper
 do_stop () {
-	echo "Stop minecraft server"
+	echo -n "Stop minecraft server... "
+	do_control "/say Server stops in 3 seconds."
+	sleep 3
 	start-stop-daemon --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
 	echo "Done." || echo "Fail."
-	#rm $_WRAPPER_PID
+	rm $_WRAPPER_PID
+	#rm $_WRAPPER_SOCKET
 }
 
 do_status() {
-	start-stop-daemon --pidfile $_WRAPPER_PID --status
-	echo "Running." || echo "Not Running."
+	echo -n 'Checking minecraft-server status... '
+	if is_running; then
+		echo "Running."
+		exit 0
+	else
+		echo "Stopped."
+		exit 1
+	fi
+
 }
+
+is_running() {
+	if echo 'list' | $_BIN_PERL ${_DIR_MVSTBIN}/control.pm --force-raw 2> /dev/null ; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+do_control() {
+	echo $@ | $_BIN_PERL ${_DIR_MVSTBIN}/control.pm --force-raw 2> /dev/null
+}
+
+say() {
+	do_control /say $@
+}
+
+suspend_saves() {
+	id=$1
+	shift
+	if test '(' `find "$_DIR_TMP" -iname "${_MAPNAME}-save-lock-*" | wc -l` == 0 ')'; then
+		do_control "save-off"
+		do_control "save-all"
+	fi
+	touch "$_DIR_TMP/${_MAPNAME}-save-lock-$id"
+}
+
+start_saves() {
+	id=$1
+	shift
+	[[ -f "${_DIR_TMP}/${_MAPNAME}-save-lock-$id" ]] && rm "${_DIR_TMP}/${_MAPNAME}-save-lock-$id"
+	if test '(' `find "${_DIR_TMP}" -iname "${_MAPNAME}-save-lock-*" | wc -l` == 0 ')'; then
+		do_control "save-on"
+	fi
+}
+
+
+
+#### BACKUP ####
+
+do_backup() {
+	link='no'
+	clear_db='no'
+	reason=''
+	case $1 in
+		daily)
+			_bakDir="$_DIR_BACKUP/daily"
+		;;
+		weekly)
+			_bakDir="$_DIR_BACKUP/weekly"
+			link='yes'
+			clear_db='yes'
+		;;
+		*)
+			_bakDir="$_DIR_BACKUP/extra"
+			reason=$2
+			reason=$(echo $reason | tr '[:upper:]' '[:lower:]' | sed -r 's/[^a-z0-9_\-]+//g' | tr '-' '_')
+			if [[ $reason != "" ]]; then
+				$reason="-${reason}"
+			fi
+		;;
+	esac
+	time=`TZ='Europe/Berlin' date '+%Y-%m-%d-%H-%M-%S'`
+	say 'Performing world backup'
+	suspend_saves backup
+	sleep 1
+	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}/${_MAPNAME}" -f "$_bakDir/${time}${reason}.tar.bz2" ./ 
+	start_saves backup
+	say 'Backup complete'
+
+	if [[ $link == 'yes' ]]; then
+		cd $_bakDir
+		[[ -e latest.tar.bz2 ]] && rm -f latest.tar.bz2
+		ln -s `ls $_bakDir | sort -n | tail -n 1` latest.tar.bz2
+	fi
+
+	if [[ $clear_db == 'yes' ]]; then
+		do_tracer_clean
+	fi
+}
+
+
+
+#### UPDATER ####
+
+do_update() {
+	if [[ -z "$1" ]]; then
+		usage
+	fi
+
+	time=`date '+%Y-%m-%d-%H-%M-%S'`
+	version=$1
+	start="no"
+	if is_running; then
+		say "Server going down for update"
+		do_stop
+		start="yes"
+	fi
+	# Backup the jars
+	if [[ -f "${_DIR_SERVER}/minecraft_server.jar" ]]; then
+		echo -n "Saving jar "
+		mv "${_DIR_SERVER}/minecraft_server.jar" "${_DIR_BACKUP}/server_jar/minecraft_server_${time}.jar"
+		echo "Done"
+	fi
+	if [[ -f "$_CLIENT_JAR" ]]; then
+		echo -n "Saving client jar "
+		mv "$_CLIENT_JAR" "$_DIR_BACKUP/client_jar/minecraft_${time}.jar"
+		echo "Done"
+	fi
+	# Download the jars
+	wget -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
+	wget -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
+
+	echo -n "Changing ownership "
+	chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_server.jar"
+	chown $_MC_USER:$_MC_GROUP "$_CLIENT_JAR"
+	echo "Done"
+
+	if [[ "${start}" == "yes" ]]; then
+		do_start
+	fi
+}
+
+
+
+#### MAIN STUFF ####
+
+do_install() {
+	# generate directories if needed
+	mkdir -p "${_DIR_BACKUP}/weekly"
+	mkdir -p "${_DIR_BACKUP}/daily"
+	mkdir -p "${_DIR_BACKUP}/extra"
+	mkdir -p "${_DIR_BACKUP}/server_jar"
+	mkdir -p "${_DIR_BACKUP}/client_jar"
+
+	mkdir -p "${_DIR_TMP}"
+	mkdir -p "${_DIR_LOGS}"
+}
+
+
+
+usage() {
+	echo """
+Usage: $0 {command}
+
+Command:
+	start			Starts the server
+	stop			Stops the server
+	status			Shows the status of the server
+	restart			Restarts the Server
+
+	say <msg>		Say <msg> ingame
+	control <cmd>		Sends a raw command to the server
+	update <version>	Update to <version> (eg. 1.5.6)
+
+	backup <arg>		Backups the server
+	tracer <arg>		Executes the tracer with <cmd>
+
+Backup arguments:
+	daily			Perform the daily backup
+	weekly			Perform the weekly backup
+	<reason>		Perform an extra backup, named <reason>
+
+Tracer arguments:
+	log			Logs the postitions of the players
+	clean			Resets the database with the positions
+
+"""
+	exit 1
+}
+
+
 
 
 ## MAIN
@@ -58,15 +294,36 @@ case "$1" in
 		sleep 3
 		do_start
 		;;
- 
-	status)
+ 	status)
 		do_status
 		;;
-	*)
-		echo "Usage: $0 {start|stop|restart}"
-		exit 1
+	install)
+		do_install
 		;;
- 
+	update)
+		do_update $2
+		;;
+	control)
+		shift
+		do_control $@
+		;;
+	say)
+		shift
+		say $@
+		;;
+	backup)
+		shift
+		do_backup $@
+		;;
+	tracer)
+		shift
+		do_tracer $@
+		;;	
+	*)
+		usage
+		;;
 esac
 exit 0
+
+
 

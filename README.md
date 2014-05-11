@@ -17,14 +17,39 @@ minecraftd.sh
 Depencies:
 
 * start-stop-daemon
+* tar
+* wget 
 
 Description:
 
-This skript starts the wrapper in the background, like a daemon.
+This skript manages the whole mvst, like starting/stopping the wrapper, updating minecraft jars and backup everything.
+Make sure you set the variables right at the beginning in the file minecraft.sh
 
 Usage:
 
-	minecraftd.sh {start|stop|restart}
+	Usage: minecraft.sh {command}
+
+	Command:
+		start			Starts the server
+		stop			Stops the server
+		status			Shows the status of the server
+		restart			Restarts the Server
+
+		say <msg>		Say <msg> ingame
+		control <cmd>		Sends a raw command to the server
+		update <version>	Update to <version> (eg. 1.5.6)
+
+		backup <arg>		Backups the server
+		tracer <arg>		Executes the tracer with <cmd>
+
+	Backup arguments:
+		daily			Perform the daily backup
+		weekly			Perform the weekly backup
+		<reason>		Perform an extra backup, named <reason>
+
+	Tracer arguments:
+		log			Logs the postitions of the players
+		clean			Resets the database with the positions
 
 
 
