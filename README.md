@@ -13,7 +13,8 @@ Features
 * backup the map weekly and daily
 * update minecraft easily
 * records the positions of every player in the game and saves them into a sqlite file
-
+* modular design
+* every skript understands "--help", except control.pm
 
 Download
 -----------------
@@ -61,7 +62,8 @@ Change the global variables in minecraftd.sh to your needs:
 
 	_CLIENT_JAR		points to the minecraft.jar of the client
 
-Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" in minecrafd.sh:
+Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" in 
+minecraftd.sh:
 
 	    - '/tmp/mcwrapper.socket / UNIX'
 
@@ -112,7 +114,7 @@ Usage:
 		<reason>		Perform an extra backup, named <reason>
 
 	Tracer arguments:
-		log			Logs the postitions of the players
+		log			Logs the positions of the players
 		clean			Resets the database with the positions
 
 

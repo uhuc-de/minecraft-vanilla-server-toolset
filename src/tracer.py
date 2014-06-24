@@ -1,11 +1,5 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
-# Written in Python 2
-# By CyD 
-# 
-# 1.0 - 2012-11-15
-# 1.1 - 2012-11-18
-# 2.0 - 2014-04-30
 
 
 import os
