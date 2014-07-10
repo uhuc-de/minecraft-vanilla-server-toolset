@@ -42,37 +42,11 @@ _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
 #### TRACER ####
 
 do_tracer() {
-case "$1" in
-	log)
-		do_tracer_log
-		;;
-	clean)
-		do_tracer_clean
-		;;
-	*)
-		usage
-		;;
- esac
-}
-
-do_tracer_log() {
 	tracerdb="${_TRACER_DATABASE}"
 	playerdata="${_DIR_SERVER}/${_MAPNAME}/playerdata/"
 
-	if [[ ! -f $tracerdb ]]; then
-		echo "Tracer database not found... creates it."
-		$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py install $tracerdb
-	fi
-	$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py log "$playerdata" "$tracerdb"
+	$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py "$playerdata" "$tracerdb"
 }
-
-do_tracer_clean() {
-	if [[ -f $tracerdb ]]; then
-		$_BIN_PYTHON2 $_DIR_MVSTBIN/tracer.py clean "$tracerdb"
-	fi
-}
-
-
 
 
 #### WRAPPER ####
@@ -281,18 +255,15 @@ Command:
 	control <cmd>		Sends a raw command to the server
 	update <version>	Update to <version> (eg. 1.5.6)
 	whitelist [<user> ...]	Perform extra backup and add <user> to whitelist
+	tracer			Logs the players positions 
 
 	backup <arg>		Backups the server
-	tracer <arg>		Executes the tracer with <cmd>
+
 
 Backup arguments:
 	daily			Perform the daily backup
 	weekly			Perform the weekly backup
 	<reason>		Perform an extra backup, named <reason>
-
-Tracer arguments:
-	log			Logs the postitions of the players
-	clean			Resets the database with the positions
 
 """
 	exit 1
@@ -336,8 +307,7 @@ case "$1" in
 		do_backup $@
 		;;
 	tracer)
-		shift
-		do_tracer $@
+		do_tracer
 		;;	
 	whitelist)
 		shift

@@ -1,10 +1,10 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
-
 import os
 import sys
 import traceback
+from os.path import isfile, getsize
 import time
 import urllib2	# needed by getUsernameByUuid()
 import json		# needed by getUsernameByUuid()
@@ -20,22 +20,14 @@ from nbt import * # https://github.com/twoolie/NBT.git
 Print the usage to the screen
 """
 def help():
-	print("""tracer.py {command} 
-
-Commands: 
-
-	install {tracerdatabase}
-	log {playerdata} {tracerdatabase}
-	clean {tracerdatabase}
+	print("""tracer.py <playerdata> <tracerdatabase> 
 
 Arguments:
-	tracerdatabase	Sqlite File
 	playerdata	Directory that contains the playerdata
+	tracerdatabase	Sqlite File
 
-Examples:
-	tracer.py install /home/mc/player_positions.sqlite
-	tracer.py clean /home/mc/player_positions.sqlite
-	tracer.py log /home/mc/map/playerdata/ /home/mc/player_positions.sqlite
+Example:
+	tracer.py /home/mc/map/playerdata/ /home/mc/player_positions.sqlite
 """)	
 	sys.exit(2)
 
@@ -50,23 +42,18 @@ def main():
 		help()
 
 	else: 
-		action = sys.argv[1]
+		argData = sys.argv[1]
+		argDb = sys.argv[2]
 
-		if action == "install":
-			install(sys.argv[2]) # argv[2] = DB
 
-		elif action == "clean":
-			# argv[2] = DB
-			cleanDb(sys.argv[2])
-			install(sys.argv[2])
+		if not isfile(argDb):
+			install(argDb)
 
-		elif action == "log":
-			# argv[2] = playerdata, argv[3] = DB
-			logPlayers(sys.argv[3], sys.argv[2])
+		if not isSQLite3(argDb):
+			print ("'%s' is not a SQLite3 database file" % argDb)
+			sys.exit(2)
 
-		else: 
-			print("Wrong arguments!\n")
-			help()
+		logPlayers(argDb, argData)
 
 
 """
@@ -80,37 +67,47 @@ def logPlayers(db, players):
 	if players[-1] is not "/":
 		players += "/"
 
+	playerlist = []
 	for i in os.listdir(players):
 		playerstats = getPlayerStats(players+i) # name, dimension, pos_x, pos_y, pos_z
 		playerstats.append(timestamp)
+		playerlist.append(playerstats)
 
-		# add the tupel to the DB
-		addEntry(playerstats, db)
+
+	addEntries(playerlist, db)
 
 
 
 """
-Adds a tupel to the database
+Adds a list of tupel to the database
 """
-def addEntry(playerstats, db):
+def addEntries(playerlist, db):
 	connection = sqlite3.connect(db)
 	cursor = connection.cursor()
 
-	# Check if the position had chanced
-	sql = ("SELECT * FROM positions WHERE uuid='%s' AND dimension='%s' AND pos_x='%s' AND pos_y='%s' AND pos_z='%s'" % (playerstats[0],playerstats[1],playerstats[2],playerstats[3],playerstats[4]) )
-	cursor.execute(sql)
-	vergleich = cursor.fetchall()
+	for playerstats in playerlist:
 
-	# if different position -> save
-	if len(vergleich) == 0:
+		# Check if the position had chanced
+		sql = ("SELECT * FROM positions WHERE uuid='%s' AND dimension='%s' AND pos_x='%s' AND pos_y='%s' AND pos_z='%s'" % (playerstats[0],playerstats[1],playerstats[2],playerstats[3],playerstats[4]) )
+		cursor.execute(sql)
+		vergleich = cursor.fetchall()
 
-		try:
-			t = "INSERT INTO positions (uuid, dimension, pos_x, pos_y, pos_z, time) VALUES ('%s',%s,%s,%s,%s,%s )" % (playerstats[0],playerstats[1],playerstats[2],playerstats[3],playerstats[4],playerstats[5])
-			cursor.execute(t)
-			connection.commit()
-		except:
-			print("ERROR: addEntry()")
-			traceback.print_exc(file=sys.stdout)
+		# if different position -> save
+		if len(vergleich) == 0:
+
+			try:
+				t = "INSERT INTO positions (uuid, dimension, pos_x, pos_y, pos_z, time) VALUES ('%s',%s,%s,%s,%s,%s )" % (playerstats[0],playerstats[1],playerstats[2],playerstats[3],playerstats[4],playerstats[5])
+				cursor.execute(t)
+				
+			except:
+				print("ERROR: addEntry()")
+				traceback.print_exc(file=sys.stdout)
+
+	try:
+		connection.commit()
+	except:
+		print("ERROR: commit failed")
+		traceback.print_exc(file=sys.stdout)
 
 	cursor.close()
 	connection.close()
@@ -120,7 +117,7 @@ def addEntry(playerstats, db):
 def getPlayerStats(playerfile):
 	# aufbau: name, dimension, x, y, z
 	name = os.path.basename(playerfile).split(".")[0].replace("-","")
- 	player = []
+	player = []
 	nbtfile = nbt.NBTFile(playerfile,'rb')
 
 	player.append(name) # name
@@ -130,6 +127,25 @@ def getPlayerStats(playerfile):
 	player.append(nbtfile["Pos"][2]) # z
 	return player
 
+
+"""
+Check if the sqlite3file is valid
+credits to: http://stackoverflow.com/questions/12932607/
+"""
+def isSQLite3(filename):
+	if not isfile(filename):
+		return False
+	if getsize(filename) < 100: # SQLite database file header is 100 bytes
+		return False
+	else:
+		fd = open(filename, 'rb')
+		Header = fd.read(100)
+		fd.close()
+
+		if Header[0:16] == 'SQLite format 3\000':
+			return True
+		else:
+			return False
 
 
 
@@ -175,33 +191,8 @@ def install(db):
 		c.close()
 		connection.close()
 	except: 
-		print("ERROR: install()")
+		print("Not able to create a database at %s" % db)
 		traceback.print_exc(file=sys.stdout)
-
-
-
-"""
-Get the Username to the UUID using http://connorlinfoot.com/uuid/
-"""
-def getUsernameByUuid(uuid):
-	"""
-	POST https://api.mojang.com/profiles/page/1
-	Content-Type: application/json
-	{"name":"notch","agent":"minecraft"}
-	"""
-
-
-	data = {'name': 'thedudemaster', 'agent': 'minecraft'}
-	#data = {'id': '4c104fd1ef9c4883917b58ceba010d37', 'agent': 'minecraft'}
-
-	req = urllib2.Request('https://api.mojang.com/profiles/page/1')
-	req.add_header('Content-Type', 'application/json')
-
-	response = urllib2.urlopen(req, json.dumps(data))
-
-	return response.read()
-
-
 
 
 """
@@ -215,10 +206,4 @@ def getTime():
 #####################################################
 
 main()
-
-#print( getUsernameByUuid("4c104fd1ef9c4883917b58ceba010d37") )
-
-
-
-
 

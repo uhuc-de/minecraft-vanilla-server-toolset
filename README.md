@@ -1,7 +1,7 @@
 Minecraft Vanilla Server Toolset
 ================================
 
-The Minecraft Vanilla Server Toolset version 2 (mvst2) is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" Window where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you want.
+The Minecraft Vanilla Server Toolset version 2 (mvst2) is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" Window where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you like.
 
 
 Features
@@ -62,7 +62,7 @@ Change the global variables in minecraftd.sh to your needs:
 
 	_CLIENT_JAR		points to the minecraft.jar of the client
 
-Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" in 
+Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" from 
 minecraftd.sh:
 
 	    - '/tmp/mcwrapper.socket / UNIX'
@@ -75,9 +75,9 @@ To test your settings, start the server, stop it with a command and check the lo
 
 ### Log player positions
 
-If you want to log the movements of every player on your server you should add to your crontab:
+If you want to log the movements of every player every minute on your server you should add to your crontab:
 
-	*/1 * * * * /path/to/minecraftd.sh tracer log
+	* * * * * /path/to/minecraftd.sh tracer 
 
 The variable "\_TRACER\_DATABASE" is the place of the records. The default file is "tracer\_data.sqlite" inside the map directory. If you want to read out the position records you should use tracer-client.py.
 
@@ -106,24 +106,18 @@ Usage:
 		update <version>	Update to <version> (eg. 1.5.6)
 
 		backup <arg>		Backups the server
-		tracer <arg>		Executes the tracer with <arg>
+		tracer			Logs the positions of the players
 
 	Backup arguments:
 		daily			Perform the daily backup
 		weekly			Perform the weekly backup
 		<reason>		Perform an extra backup, named <reason>
 
-	Tracer arguments:
-		log			Logs the positions of the players
-		clean			Resets the database with the positions
-
-
-
 
 
 #### tracer-client.py
 
-With this client you can query the sqlitefiles with the positions from "minecraftd.sh tracer log" (tracer.py) easily.
+With this client you can query the sqlitefiles with the positions from "minecraftd.sh tracer" (tracer.py) easily.
 	
 	python2 tracer-client.py --help
 
