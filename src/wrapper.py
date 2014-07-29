@@ -69,7 +69,7 @@ def main(argv):
 
 	for opt, arg in opts:
 		
-		if opt == ("-h", "--help"):
+		if opt in ("-h", "--help"):
 			help()
 		elif opt in ("-s", "--socket"):
 			socket = arg
