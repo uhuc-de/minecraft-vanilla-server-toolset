@@ -14,7 +14,7 @@ Features
 * update minecraft easily
 * records the positions of every player in the game and saves them into a sqlite file
 * modular design
-* every skript understands "--help", except control.pm
+* every skript understands "--help"
 
 Download
 -----------------
@@ -27,13 +27,7 @@ Dependencies:
 
 Install the dependencies of the toolset:
 
-* python 2.*
-* perl >= 2.5.10
-* perl-curses
-* perl-io-interactive
-* perl-io-tty 
-* perl-term-readkey
-* perl-yaml
+* python 2.7
 * start-stop-daemon
 * tar
 * wget 
@@ -61,11 +55,6 @@ Change the global variables in minecraftd.sh to your needs:
 	_MC_GROUP		the group of the server
 
 	_CLIENT_JAR		points to the minecraft.jar of the client
-
-Change at the end of control.pm the socket to the value of "\_WRAPPER\_SOCKET" from 
-minecraftd.sh:
-
-	    - '/tmp/mcwrapper.socket / UNIX'
 
 To test your settings, start the server, stop it with a command and check the logs:
 
@@ -127,8 +116,6 @@ Multiple instances:
 -------------------
 
 If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh and just need to change the variables "\_DIR\_SERVER", "\_INSTANCE" and "\_DIR\_BACKUP".
-
-
 
 
 

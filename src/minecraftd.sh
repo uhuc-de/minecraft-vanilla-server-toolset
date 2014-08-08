@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# depends: wget, tar
-
 #### VARIABLES ####
 
 ## Primary variables
@@ -20,7 +18,6 @@ _MC_GROUP="minecraft"
 
 _CLIENT_JAR="/home/minecraft/.minecraft/bin/minecraft.jar"
 
-_BIN_PERL=`which perl`
 _BIN_PYTHON2=`which python2`
 
 ## Secondary variables
@@ -100,7 +97,7 @@ do_status() {
 }
 
 is_running() {
-	if echo 'list' | $_BIN_PERL ${_DIR_MVSTBIN}/control.pm --force-raw 2> /dev/null ; then
+	if echo 'list' | $_BIN_PYTHON2 control.py -s $_WRAPPER_SOCKET 2> /dev/null ; then
 		return 0
 	else
 		return 1
@@ -108,7 +105,7 @@ is_running() {
 }
 
 do_control() {
-	echo $@ | $_BIN_PERL ${_DIR_MVSTBIN}/control.pm --force-raw 2> /dev/null
+	echo $@ | $_BIN_PYTHON2 control.py -s $_WRAPPER_SOCKET 2> /dev/null
 }
 
 say() {
