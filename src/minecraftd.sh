@@ -55,23 +55,36 @@ do_tracer() {
 do_start () {
 	echo -n "Start minecraft-server... "
 
-	start-stop-daemon -n "mcwrapper" --start --background \
-		--user $_MC_USER --group $_MC_GROUP \
-		--pidfile $_WRAPPER_PID --make-pidfile \
-		--chdir $_DIR_SERVER \
-		--exec $_BIN_PYTHON2 -- $_WRAPPER_CMD
-	echo "Done." || echo "Fail."
+	if is_running; then
+		echo "is already running."
+		exit 1
+	else
+		start-stop-daemon -n "mcwrapper" --start --background \
+			--user $_MC_USER --group $_MC_GROUP \
+			--pidfile $_WRAPPER_PID --make-pidfile \
+			--chdir $_DIR_SERVER \
+			--exec $_BIN_PYTHON2 -- $_WRAPPER_CMD
+		echo "Done." || echo "Fail."
+	fi
+
+
 }
 
 # Stops the wrapper
 do_stop () {
 	echo -n "Stop minecraft server... "
-	do_control "/say Server stops in 3 seconds."
-	sleep 3
-	start-stop-daemon --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
-	echo "Done." || echo "Fail."
-	rm $_WRAPPER_PID
-	#rm $_WRAPPER_SOCKET
+
+	if is_running; then
+		do_control "/say Server stops in 3 seconds."
+		sleep 3
+		start-stop-daemon --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
+		echo "Done." || echo "Fail."
+		rm $_WRAPPER_PID
+		#rm $_WRAPPER_SOCKET #FIXME
+	else
+		echo "server is not running."
+		exit 1
+	fi
 }
 
 do_status() {
