@@ -6,7 +6,8 @@
 
 _INSTANCE="default"
 
-MAINDIR="/home/minecraft/"
+# MAINDIR without tailing "/"
+MAINDIR="/home/minecraft"
 
 
 _MC_USER="minecraft"
@@ -187,7 +188,7 @@ do_overviewer() {
 		say "Start mapping..."
 	fi
 
-	${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy}" "${_DIR_OVERVIEWER}/html}" 2>> $_LOGFILE 
+	nice -n 10 ${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy}" "${_DIR_OVERVIEWER}/html}" 2>> $_LOGFILE 
 
 	if $running; then
 		endt=$(date +%s)
