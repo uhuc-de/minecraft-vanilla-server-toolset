@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 
@@ -84,10 +84,11 @@ def main(argv):
 		print("No command found!")
 		help()
 
+	formatter = '%(asctime)s|%(name)s|%(levelname)s|%(message)s'
 	if logfile == "":
-		logging.basicConfig(level=loglevel)
+		logging.basicConfig(level=loglevel,format=formatter)
 	else:
-		logging.basicConfig(filename=logfile,level=loglevel)
+		logging.basicConfig(filename=logfile,level=loglevel,format=formatter)
 
 	wrapper = Wrapper(mccommand, socket, linebreak)
 	wrapper.start()
@@ -157,8 +158,12 @@ class Broadcaster(object):
 				else:
 					# Data recieved from client
 					try:
-						data = unicode( sock.recv(self.buffersize) , errors='replace')
-						self.read(data)
+						data = sock.recv(self.buffersize) 
+						text = data.strip().decode("UTF-8")
+						if len(text) > 0:
+							self.log.debug("input=%s" % text)
+							self.wrapper.write(text)
+
 
 					except:
 						self.log.debug("client disconnected [read]")
@@ -179,7 +184,7 @@ class Broadcaster(object):
 		for socket in self.connections:
 			if socket != self.server_socket:
 				try:
-					socket.send( message + self.linebreak ) #.encode("utf-8")
+					socket.send( message.encode("utf-8")  ) #.encode("utf-8")
 				except:
 					pass
 
@@ -238,18 +243,22 @@ class Wrapper(object):
 		## main loop
 		while self.mcrunning:
 			try:
-				output = self.process.stdout.readline().strip().decode("utf-8")
-			
+				output = self.process.stdout.readline().decode("utf-8")
+				output = output.strip()
 				if output == "": 
+					self.log.debug("wrapper readline is empty")
 					self.mcrunning = False
+				else:
 
-				self.log.info( "Server: %s" % output )
+					o = "]:".join(output.split("]:")[1:]).strip()
+					self.log.info( "Server: %s" % o )
 
-				try:
-					self.broadcaster.broadcast_data(output)
-				except:			
-					self.log.error("parsing %s" % output )
-					pass			
+					try:
+						self.broadcaster.broadcast_data(output)
+					except:			
+						self.log.error("parsing %s" % output )
+						self.log.debug( traceback.print_exc() )	
+						pass			
 				
 				
 			except IOError:
@@ -263,7 +272,9 @@ class Wrapper(object):
 
 	""" Sends "inp" to the server """
 	def write(self, inp):
-		self.process.stdin.write(inp.encode("utf-8") + self.linebreak)
+		s = unicode(inp + self.linebreak)
+		self.process.stdin.write(s.encode("utf-8"))
+
 
 
 if __name__ == '__main__':
