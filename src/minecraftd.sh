@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #### VARIABLES ####
 
@@ -6,19 +6,32 @@
 
 _INSTANCE="default"
 
-MAINDIR="/home/minecraft"
-_DIR_SERVER="${MAINDIR}/server"
-_DIR_BACKUP="${MAINDIR}/backup"
-_DIR_MVSTBIN="${MAINDIR}/bin"
-_DIR_TMP="${MAINDIR}/tmp"
-_DIR_LOGS="${MAINDIR}/logs"
+MAINDIR="/home/minecraft/"
+
 
 _MC_USER="minecraft"
 _MC_GROUP="minecraft"
 
-_CLIENT_JAR="/home/minecraft/.minecraft/bin/minecraft.jar"
+_LOGLEVEL=1
+# 1 = Debug ... 5 = Critical
+
+
+_DIR_SERVER="${MAINDIR}/server/${_INSTANCE}"
+_DIR_BACKUP="${MAINDIR}/backups/${_INSTANCE}"
+_DIR_MVSTBIN="${MAINDIR}/bin"
+_DIR_TMP="${MAINDIR}/tmp"
+_DIR_LOGS="${MAINDIR}/logs"
+_DIR_OVERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
+
+
+_OVERVIEWER_SETTINGS="${_DIR_OVERVIEWER}/settings.py"
+_LOGFILE="${_DIR_LOGS}/mvst_${_INSTANCE}.log"
+_CLIENT_JAR="${_DIR_SERVER}/minecraft_client.jar"
+
 
 _BIN_PYTHON2=`which python2`
+_BIN_DAEMON=`which start-stop-daemon`
+_BIN_OVERVIEWER=`which overviewer.py`
 
 ## Secondary variables
 
@@ -26,8 +39,7 @@ _MAPNAME=$(grep "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 
 
 _WRAPPER_SOCKET="${_DIR_TMP}/wrapper_${_INSTANCE}.socket"
 _WRAPPER_PID="${_DIR_TMP}/wrapper_${_INSTANCE}.pid"
-_WRAPPER_LOG="${_DIR_LOGS}/wrapper_${_INSTANCE}.log"
-_WRAPPER_CMD="${_DIR_MVSTBIN}/wrapper.py -s $_WRAPPER_SOCKET -l $_WRAPPER_LOG --- java -jar minecraft_server.jar nogui"
+_WRAPPER_CMD="${_DIR_MVSTBIN}/wrapper.py -s $_WRAPPER_SOCKET -v ${_LOGLEVEL} -l $_LOGFILE --- java -jar minecraft_server.jar nogui"
 
 _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
 
@@ -37,6 +49,7 @@ _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
 
 
 #### TRACER ####
+
 
 do_tracer() {
 	tracerdb="${_TRACER_DATABASE}"
@@ -72,15 +85,14 @@ do_stop () {
 	echo -n "Stop minecraft server... "
 
 	if is_running; then
-		do_control "/say Server stops in 3 seconds."
+		say "Server stops in 3 seconds."
 		sleep 3
 		start-stop-daemon --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
 		echo "Done." || echo "Fail."
-		rm $_WRAPPER_PID
-		#rm $_WRAPPER_SOCKET #FIXME
+		rm -f $_WRAPPER_PID
+		rm -f $_WRAPPER_SOCKET 
 	else
 		echo "server is not running."
-		exit 1
 	fi
 }
 
@@ -105,7 +117,11 @@ is_running() {
 }
 
 do_control() {
-	echo $@ | $_BIN_PYTHON2 control.py -s $_WRAPPER_SOCKET 2> /dev/null
+	if echo $@ | $_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET 2>> $_LOGFILE ; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 say() {
@@ -113,6 +129,7 @@ say() {
 }
 
 suspend_saves() {
+	# id = lock reason
 	id=$1
 	shift
 	if test '(' `find "$_DIR_TMP" -iname "${_INSTANCE}-save-lock-*" | wc -l` == 0 ')'; then
@@ -131,64 +148,98 @@ start_saves() {
 	fi
 }
 
-do_whitelist() {
-	echo "Performing backup"
-	do_backup "whitelist"
+#### WHITELIST ####
 
-	for user in $@; do
-		user=`echo $user | tr '[:upper:]' '[:lower:]'`
-		echo "Whitelisting user ,,${user}''"
-		if is_running; then
-			do_control whitelist add ${user}
-			say "Added ,,${user}'' to whitelist."
-		else
-			echo "Couldn't connect to the server!"
-		fi
-	done
+do_whitelist() {
+	if [ -z "$1" ]; then
+		echo "And whats the name of the user??" 1>&2
+		exit 1
+	fi
+
+	if [ ! is_running ]; then
+		echo "Couldn't connect to the server!"
+	fi
+
+	user=`echo $1 | tr '[:upper:]' '[:lower:]'`
+	say "Whitelisting user ,,${user}''"
+
+	do_backup "${user}"
+
+	do_control whitelist add ${user}
+	say "Added ,,${user}'' to whitelist."
 }
 
+#### OVERVIEWER ####
+
+do_overviewer() {
+	running=is_running
+	if $running; then
+		startt=$(date +%s)
+		say "Copy world for mapping"
+		suspend_saves overviewer
+		sleep 3
+	fi	
+
+	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/$_INSTANCE/mapcopy"
+
+	if $running; then
+		start_saves overviewer
+		say "Start mapping..."
+	fi
+
+	${_BIN_OVERVIEWER} -c ${_OVERVIEWER_SETTINGS} --quiet 2>> $_LOGFILE 
+	${_BIN_OVERVIEWER} -c ${_OVERVIEWER_SETTINGS} --quiet --genpoi 2>> $_LOGFILE
+
+	if $running; then
+		endt=$(date +%s)
+		diff=$(($endt - $startt)) / 60
+
+		say "Finished mapping in $diff minutes"
+	fi
+}
 
 #### BACKUP ####
 
 do_backup() {
-	link='no'
-	clear_db='no'
-	reason=''
-	case $1 in
-		daily)
-			_bakDir="$_DIR_BACKUP/daily"
-		;;
-		weekly)
-			_bakDir="$_DIR_BACKUP/weekly"
-			link='yes'
-			clear_db='yes'
-		;;
-		*)
-			_bakDir="$_DIR_BACKUP/extra"
-			reason=$2
-			reason=$(echo $reason | tr '[:upper:]' '[:lower:]' | sed -r 's/[^a-z0-9_\-]+//g' | tr '-' '_')
-			if [[ $reason != "" ]]; then
-				$reason="-${reason}"
-			fi
-		;;
-	esac
-	time=`TZ='Europe/Berlin' date '+%Y-%m-%d-%H-%M-%S'`
-	say 'Performing world backup'
-	suspend_saves backup
-	sleep 1
-	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}/${_MAPNAME}" -f "$_bakDir/${time}${reason}.tar.bz2" ./ 
-	start_saves backup
-	say 'Backup complete'
-
-	if [[ $link == 'yes' ]]; then
-		cd $_bakDir
-		[[ -e latest.tar.bz2 ]] && rm -f latest.tar.bz2
-		ln -s `ls $_bakDir | sort -n | tail -n 1` latest.tar.bz2
+	if [ -z "$1" ]; then
+		echo "Too few arguments!" 1>&2
+		exit 1
 	fi
 
-	if [[ $clear_db == 'yes' ]]; then
-		do_tracer_clean
+	reason=$(echo $1 | tr '[:upper:]' '[:lower:]' | sed -r 's/[^a-z0-9_\-]+//g' | tr '-' '_')
+	time=`date '+%Y-%m-%d-%H%M%S'`
+	backupfile=${_DIR_BACKUP}/${time}_${reason}
+
+	running=is_running
+
+	if $running; then
+		say "Performing world backup ,,${reason}''"
+		suspend_saves backup
+	fi	
+
+	sleep 3
+	filelist="$_MAPNAME whitelist.json server.properties banned-players.json"
+	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}" -f "${backupfile}.tar.bz2" $filelist
+	md5sum "${backupfile}.tar.bz2" > "${backupfile}.tar.bz2.md5"
+
+	if $running; then
+		start_saves backup
+		say "Backup complete"
+	fi	
+
+	cd $_DIR_BACKUP
+	# symlink the bz2
+	if [ -e latest.tar.bz2 ]; then
+		rm -f latest.tar.bz2
 	fi
+	ln -s `ls $_DIR_BACKUP/*.tar.bz2 | sort -n | tail -n 1` latest.tar.bz2
+
+	# symlink the md5sum
+	if [ -e latest.tar.bz2.md5 ]; then
+		rm -f latest.tar.bz2.md5
+	fi
+	ln -s `ls $_DIR_BACKUP/*.tar.bz2.md5 | sort -n | tail -n 1` latest.tar.bz2.md5
+
 }
 
 
@@ -208,17 +259,6 @@ do_update() {
 		do_stop
 		start="yes"
 	fi
-	# Backup the jars
-	if [[ -f "${_DIR_SERVER}/minecraft_server.jar" ]]; then
-		echo -n "Saving jar "
-		mv "${_DIR_SERVER}/minecraft_server.jar" "${_DIR_BACKUP}/server_jar/minecraft_server_${time}.jar"
-		echo "Done"
-	fi
-	if [[ -f "$_CLIENT_JAR" ]]; then
-		echo -n "Saving client jar "
-		mv "$_CLIENT_JAR" "$_DIR_BACKUP/client_jar/minecraft_${time}.jar"
-		echo "Done"
-	fi
 	# Download the jars
 	wget -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
 	wget -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
@@ -233,21 +273,19 @@ do_update() {
 	fi
 }
 
+#### SHELL ####
+
+do_shell() {
+	tail -n 25 ${_LOGFILE}
+	echo ""
+	${_BIN_PYTHON2} ${_DIR_MVSTBIN}/control.py -s ${_WRAPPER_SOCKET}
+}
+
+
+
 
 
 #### MAIN STUFF ####
-
-do_install() {
-	# generate directories if needed
-	mkdir -p "${_DIR_BACKUP}/weekly"
-	mkdir -p "${_DIR_BACKUP}/daily"
-	mkdir -p "${_DIR_BACKUP}/extra"
-	mkdir -p "${_DIR_BACKUP}/server_jar"
-	mkdir -p "${_DIR_BACKUP}/client_jar"
-
-	mkdir -p "${_DIR_TMP}"
-	mkdir -p "${_DIR_LOGS}"
-}
 
 
 
@@ -263,21 +301,19 @@ Command:
 
 	say <msg>		Say <msg> ingame
 	control <cmd>		Sends a raw command to the server
-	update <version>	Update to <version> (eg. 1.5.6)
-	whitelist [<user> ...]	Perform extra backup and add <user> to whitelist
+	update <version>	Perform backup and change to <version> (eg. 1.5.6)
+	whitelist <user> 	Perform backup and add <user> to whitelist
 	tracer			Logs the players positions 
+	backup <reason>		Backups the server
+	overviewer		Renders the overviewer map
 
-	backup <arg>		Backups the server
-
-
-Backup arguments:
-	daily			Perform the daily backup
-	weekly			Perform the weekly backup
-	<reason>		Perform an extra backup, named <reason>
+	shell			Show the tail of the logfile and starts the minecraft shell
 
 """
 	exit 1
 }
+
+
 
 
 ## MAIN
@@ -298,11 +334,11 @@ case "$1" in
  	status)
 		do_status
 		;;
-	install)
-		do_install
-		;;
 	update)
 		do_update $2
+		;;
+	overviewer)
+		do_overviewer
 		;;
 	control)
 		shift
@@ -320,9 +356,11 @@ case "$1" in
 		do_tracer
 		;;	
 	whitelist)
-		shift
-		do_whitelist $@
+		do_whitelist $2
 		;;	
+	shell)
+		do_shell
+		;;
 	*)
 		usage
 		;;
