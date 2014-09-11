@@ -180,15 +180,14 @@ do_overviewer() {
 		sleep 3
 	fi	
 
-	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/$_INSTANCE/mapcopy"
+	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/mapcopy"
 
 	if $running; then
 		start_saves overviewer
 		say "Start mapping..."
 	fi
 
-	${_BIN_OVERVIEWER} -c ${_OVERVIEWER_SETTINGS} --quiet 2>> $_LOGFILE 
-	${_BIN_OVERVIEWER} -c ${_OVERVIEWER_SETTINGS} --quiet --genpoi 2>> $_LOGFILE
+	${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy}" "${_DIR_OVERVIEWER}/html}" 2>> $_LOGFILE 
 
 	if $running; then
 		endt=$(date +%s)
@@ -279,6 +278,28 @@ do_shell() {
 	tail -n 25 ${_LOGFILE}
 	echo ""
 	${_BIN_PYTHON2} ${_DIR_MVSTBIN}/control.py -s ${_WRAPPER_SOCKET}
+}
+
+#### INSTALL ####
+do_install() {
+	if [[ -z "$1" ]]; then
+		usage
+	fi
+	version=$1
+
+	echo "Make the directories..."
+	mkdir -p -v  ${_DIR_SERVER}
+	mkdir -p -v  ${_DIR_BACKUP}
+	mkdir -p -v  ${_DIR_TMP}
+	mkdir -p -v  ${_DIR_LOGS}
+	mkdir -p -v  ${_DIR_TMP}
+	mkdir -p -v  ${_DIR_OVERVIEWER}/html
+
+	echo "Download the jars..."
+	wget -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
+	wget -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
+
+	echo "...done"
 }
 
 
