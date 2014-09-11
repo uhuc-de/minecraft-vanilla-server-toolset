@@ -290,7 +290,6 @@ do_install() {
 	echo "Make the directories..."
 	mkdir -p -v  ${_DIR_SERVER}
 	mkdir -p -v  ${_DIR_BACKUP}
-	mkdir -p -v  ${_DIR_TMP}
 	mkdir -p -v  ${_DIR_LOGS}
 	mkdir -p -v  ${_DIR_TMP}
 	mkdir -p -v  ${_DIR_OVERVIEWER}/html
