@@ -30,37 +30,41 @@ Install the dependencies of the toolset:
 * python 2.7
 * start-stop-daemon
 * tar
+* java
 * wget 
 * cron
+* bash 
+* md5sum
 * nbt (https://github.com/twoolie/NBT)
+* minecraft-overviewer (http://overviewer.org/)
 
 
-Configuration:
--------------------
+Installation: 
+------------------
 
-Make minecraftd.sh executable:
-
-	chmod +x minecraftd.sh
-
-Change the global variables in minecraftd.sh to your needs:
-
-	_DIR_SERVER		should point to the directory of the minecraft server
-	_DIR_BACKUP		should point to your minecraft backup directory
-	_DIR_MVSTBIN	inside this directory the mvst skripts should be found
-	_DIR_TMP		point to your temporary directory
-	_DIR_LOGS		inside this directory the logs are going to be found
-
-	_INSTANCE		is the name of your world (same as "level-name" in server.properties)
-	_MC_USER		the user who should own/run the server
-	_MC_GROUP		the group of the server
-
-	_CLIENT_JAR		points to the minecraft.jar of the client
+* add a user named "minecraft" to your system
+* login as the user "minecraft"
+* copy the scripts from src/ to ~/bin/
+* install all needed dependencies
+* chmod +x ~/bin/minecraftd.sh
+* change the global variables in minecraftd.sh to your needs (if you need to):
+	* "\_INSTANCE"
+	* "\_MC\_GROUP" and "\_MC\_USER" 
+* run: ~/bin/minecraftd.sh install $version
+	* eg: minecraftd.sh install 1.7.10
+* change to the directory ~/server/default/
+* run: java -jar minecraft_server.jar -nogui
+	* After it generates the needed files you can close the process (CTRL+C)
+* accept the EULA.txt
+* edit the server.properties if you need to
 
 To test your settings, start the server, stop it with a command and check the logs:
 
 	$ minecraftd.sh start
 	$ minecraftd.sh control stop
-	$ less logs/wrapper_default.log
+	$ less logs/mvst_default.log
+
+
 
 ### Log player positions
 
@@ -75,14 +79,21 @@ The variable "\_TRACER\_DATABASE" is the place of the records. The default file 
 Write to the crontab:
 
 	0 0 * * * /path/to/minecraftd.sh backup daily
-	59 23 * * 0 /path/to/minecraftd.sh backup weekly
+
+### render the overviewer 
+
+If you want to have an updated overviewer map every 3 hours, write to the crontab:
+
+	0 */3 * * * /home/minecraft/bin/minecraftd.sh overviewer
+
+The html outcome is saved under overviewer/$instance/html. You can symlink it to your homepage or edit the minecraftd.sh function do_overviewer() to your need.
 
 
 Usage:
 ------------------
 
 
-	minecraft.sh {command}
+	minecraftd.sh {command}
 
 	Command:
 		start			Starts the server
@@ -92,31 +103,30 @@ Usage:
 
 		say <msg>		Say <msg> ingame
 		control <cmd>		Sends a raw command to the server
-		update <version>	Update to <version> (eg. 1.5.6)
+		update <version>	Change to <version> (eg. 1.5.6)
 
-		backup <arg>		Backups the server
-		tracer			Logs the positions of the players
+		whitelist <user> 	Perform backup and add <user> to whitelist
+		tracer			Logs the players positions 
+		backup <reason>		Backups the server
+		overviewer		Renders the overviewer map
 
-	Backup arguments:
-		daily			Perform the daily backup
-		weekly			Perform the weekly backup
-		<reason>		Perform an extra backup, named <reason>
+		shell			Show the tail of the logfile and starts the minecraft shell
 
-
-
-#### tracer-client.py
-
-With this client you can query the sqlitefiles with the positions from "minecraftd.sh tracer" (tracer.py) easily.
-	
-	python2 tracer-client.py --help
 
 
 
 Multiple instances:
 -------------------
 
-If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh and just need to change the variables "\_DIR\_SERVER", "\_INSTANCE" and "\_DIR\_BACKUP".
+If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh to minecraftd-diverent.sh and just need to change the variable "\_INSTANCE". Then run minecraftd-diverent.sh install $version.
+
+
+Troubleshooting:
+------------------
+
+### If the user minecraft can't execute start-stop-daemon, edit the /etc/sudoers with visudo
+	minecraft       ALL = NOPASSWD: /usr/sbin/start-stop-daemon
 
 
 
-Everything in this toolset is released under the terms of the GPL3. You can send patches to mvst@noxzed.de or merge requests on gitorious.
+Everything in this toolset is released under the terms of the GPL3. You can send patches or bugreports to mvst@noxzed.de or merge requests on gitorious.
