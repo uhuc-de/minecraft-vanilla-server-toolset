@@ -46,7 +46,7 @@ Installation:
 * login as the user "minecraft"
 * copy the scripts from src/ to ~/bin/
 * install all needed dependencies
-* chmod +x ~/bin/minecraftd.sh
+* chmod +x ~/bin/*
 * change the global variables in minecraftd.sh to your needs (if you need to):
 	* "\_INSTANCE"
 	* "\_MC\_GROUP" and "\_MC\_USER" 
@@ -114,11 +114,18 @@ Usage:
 
 
 
-
 Multiple instances:
 -------------------
 
 If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh to minecraftd-diverent.sh and just need to change the variable "\_INSTANCE". Then run minecraftd-diverent.sh install $version.
+
+
+Remote ssh access to minecraftd.sh:
+----------------------------------
+
+If you want to let other users administrate the server in a limited way. Add their public ssh key to /home/minecraft/.ssh/authorized_keys like:
+
+	command="/home/minecraft/bin/remote.sh",no-port-forwarding,no-x11-forwarding,no-agent-forwarding $here-comes-the-pubkey-as-usual
 
 
 Troubleshooting:
