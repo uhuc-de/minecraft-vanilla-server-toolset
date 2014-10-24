@@ -70,7 +70,7 @@ except :
 	sys.exit(-1)
 
 if check:
-	sys.exit(-1)
+	sys.exit(0)
 
 
 # Check if TTY
