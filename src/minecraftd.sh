@@ -6,7 +6,7 @@
 
 _INSTANCE="default"
 
-# MAINDIR without tailing "/"
+# All *DIRs without tailing "/"!
 MAINDIR="/home/minecraft"
 
 
@@ -33,6 +33,7 @@ _CLIENT_JAR="${_DIR_SERVER}/minecraft_client.jar"
 _BIN_PYTHON2=`which python2`
 _BIN_DAEMON=`which start-stop-daemon`
 _BIN_OVERVIEWER=`which overviewer.py`
+_BIN_WGET=`which wget`
 
 ## Secondary variables
 
@@ -70,7 +71,7 @@ do_start () {
 		echo "is already running."
 		exit 1
 	else
-		start-stop-daemon -n "mcwrapper" --start --background \
+		${_BIN_DAEMON} -n "mcwrapper" --start --background \
 			--user $_MC_USER --group $_MC_GROUP \
 			--pidfile $_WRAPPER_PID --make-pidfile \
 			--chdir $_DIR_SERVER \
@@ -88,7 +89,7 @@ do_stop () {
 	if is_running; then
 		say "Server stops in 3 seconds."
 		sleep 3
-		start-stop-daemon --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
+		${_BIN_DAEMON} --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
 		echo "Done." || echo "Fail."
 		rm -f $_WRAPPER_PID
 		rm -f $_WRAPPER_SOCKET 
@@ -96,6 +97,15 @@ do_stop () {
 		echo "server is not running."
 	fi
 }
+
+# Restart the wrapper
+do_restart () {
+	say "Restarting..."
+	do_stop
+	sleep 3
+	do_start
+}
+
 
 do_status() {
 	echo -n 'Checking minecraft-server status... '
@@ -110,12 +120,15 @@ do_status() {
 }
 
 is_running() {
-	if echo 'list' | $_BIN_PYTHON2 control.py -s $_WRAPPER_SOCKET 2> /dev/null ; then
+	$_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET --check 2> /dev/null
+
+	if [[ $? == 0 ]]; then
 		return 0
 	else
 		return 1
 	fi
 }
+
 
 do_control() {
 	if echo $@ | $_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET 2>> $_LOGFILE ; then
@@ -159,43 +172,55 @@ do_whitelist() {
 
 	if [ ! is_running ]; then
 		echo "Couldn't connect to the server!"
+	else
+		user=`echo $1 | tr '[:upper:]' '[:lower:]'`
+		say "Whitelisting user ,,${user}''"
+
+		do_backup "${user}"
+
+		do_control whitelist add ${user}
+		say "Added ,,${user}'' to whitelist."
 	fi
 
-	user=`echo $1 | tr '[:upper:]' '[:lower:]'`
-	say "Whitelisting user ,,${user}''"
-
-	do_backup "${user}"
-
-	do_control whitelist add ${user}
-	say "Added ,,${user}'' to whitelist."
 }
 
 #### OVERVIEWER ####
 
 do_overviewer() {
+	log "Perform overviewer"
+	if test '(' `find "$_DIR_TMP" -iname "${_INSTANCE}-save-lock-overviewer" | wc -l` == 0 ')'; then
+		touch "$_DIR_TMP/${_INSTANCE}-save-lock-overviewer"
+	else
+		s="Overviewer still running: abort rendering" 
+		echo $s
+		log $s
+		exit 1
+	fi		
+
+
 	running=is_running
 	if $running; then
 		startt=$(date +%s)
-		say "Copy world for mapping"
-		suspend_saves overviewer
+		say "Start mapping..."
+		suspend_saves overviewercopy
 		sleep 3
 	fi	
 
 	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/mapcopy"
 
 	if $running; then
-		start_saves overviewer
-		say "Start mapping..."
+		start_saves overviewercopy
 	fi
 
-	nice -n 10 ${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy}" "${_DIR_OVERVIEWER}/html}" 2>> $_LOGFILE 
+	nice -n 10 ${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy" "${_DIR_OVERVIEWER}/html" 2>> $_LOGFILE 
 
 	if $running; then
 		endt=$(date +%s)
-		diff=$(($endt - $startt)) / 60
+		diff=$(( $(($endt - $startt)) / 60 ))
 
 		say "Finished mapping in $diff minutes"
 	fi
+	rm "$_DIR_TMP/${_INSTANCE}-save-lock-overviewer"
 }
 
 #### BACKUP ####
@@ -210,8 +235,8 @@ do_backup() {
 	time=`date '+%Y-%m-%d-%H%M%S'`
 	backupfile=${_DIR_BACKUP}/${time}_${reason}
 
+	log "Perform backup ${reason}"
 	running=is_running
-
 	if $running; then
 		say "Performing world backup ,,${reason}''"
 		suspend_saves backup
@@ -220,7 +245,10 @@ do_backup() {
 	sleep 3
 	filelist="$_MAPNAME whitelist.json server.properties banned-players.json"
 	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}" -f "${backupfile}.tar.bz2" $filelist
-	md5sum "${backupfile}.tar.bz2" > "${backupfile}.tar.bz2.md5"
+
+	# generate md5sum
+	cd $_DIR_BACKUP
+	md5sum "${time}_${reason}.tar.bz2" > "${backupfile}.tar.bz2.md5"
 
 	if $running; then
 		start_saves backup
@@ -260,8 +288,8 @@ do_update() {
 		start="yes"
 	fi
 	# Download the jars
-	wget -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
-	wget -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
+	$_BIN_WGET -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
+	$_BIN_WGET -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
 
 	echo -n "Changing ownership "
 	chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_server.jar"
@@ -281,7 +309,14 @@ do_shell() {
 	${_BIN_PYTHON2} ${_DIR_MVSTBIN}/control.py -s ${_WRAPPER_SOCKET}
 }
 
+#### LOG ####
+
+do_log() {
+	less +G ${_LOGFILE}
+}
+
 #### INSTALL ####
+
 do_install() {
 	if [[ -z "$1" ]]; then
 		usage
@@ -296,12 +331,19 @@ do_install() {
 	mkdir -p -v  ${_DIR_OVERVIEWER}/html
 
 	echo "Download the jars..."
-	wget -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
-	wget -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
+	$_BIN_WGET -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
+	$_BIN_WGET -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
 
 	echo "...done"
 }
 
+### WRITES TO LOGFILE ###
+
+log() {
+	a=$(date +"%F %T,")
+	b=$(date +%N | cut -b1-3)
+	echo "$a$b|mvst|INFO|$@" >> $_LOGFILE
+}
 
 
 
@@ -328,6 +370,7 @@ Command:
 	backup <reason>		Backups the server
 	overviewer		Renders the overviewer map
 
+	log			Open the logfile with less
 	shell			Show the tail of the logfile and starts the minecraft shell
 
 """
@@ -348,9 +391,7 @@ case "$1" in
 		do_stop
 		;;
 	restart)
-		do_stop
-		sleep 3
-		do_start
+		do_restart
 		;;
  	status)
 		do_status
@@ -382,11 +423,15 @@ case "$1" in
 	shell)
 		do_shell
 		;;
+	log)
+		do_log
+		;;
 	*)
 		usage
 		;;
 esac
 exit 0
+
 
 
 
