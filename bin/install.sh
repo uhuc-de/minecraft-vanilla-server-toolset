@@ -22,7 +22,8 @@ do_mkdirs() {
 	mkdir -p -v  "$_ROOT/backups/$_INSTANCE/"
 	mkdir -p -v  "$_ROOT/logs/"
 	mkdir -p -v  "$_ROOT/tmp/"
-	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/"
+	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/mapcopy"
+	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/output"
 
 cat <<EOF > "$_ROOT/bin/minecraftd.$_INSTANCE.sh"
 #!/bin/sh
