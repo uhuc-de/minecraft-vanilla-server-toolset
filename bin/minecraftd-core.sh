@@ -4,7 +4,6 @@
 
 ## Primary variables
 
-_INSTANCE="default"
 
 # All *DIRs without tailing "/"!
 MAINDIR="/home/minecraft"
@@ -37,7 +36,15 @@ _BIN_WGET=`which wget`
 
 ## Secondary variables
 
-_MAPNAME=$(grep "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
+# Get name of the world
+grep -q "level-name" "${_DIR_SERVER}/server.properties" 2> /dev/null 
+if [[ $? == 2 ]] # grep file not found
+then
+	_MAPNAME=world
+else
+	_MAPNAME=$(grep -q "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
+fi
+
 
 _WRAPPER_SOCKET="${_DIR_TMP}/wrapper_${_INSTANCE}.socket"
 _WRAPPER_PID="${_DIR_TMP}/wrapper_${_INSTANCE}.pid"

@@ -45,25 +45,20 @@ Installation:
 
 * add a user named "minecraft" to your system
 * login as user "minecraft"
-* copy the scripts from src/ to ~/bin/
 * install all needed dependencies
 * chmod +x ~/bin/*
 * change the global variables in minecraftd.sh to your needs (if you need to):
-	* "\_INSTANCE"
 	* "\_MC\_GROUP" and "\_MC\_USER" 
-* run: ~/bin/minecraftd.sh install $version
-	* eg: minecraftd.sh install 1.7.10
+* to install run: ~/bin/install.sh <version> [<instance>]
+	* eg: install.sh 1.7.10 default
 * change to the directory ~/server/default/
-* run: java -jar minecraft_server.jar -nogui
-	* After it generates the needed files you can close the process (CTRL+C)
-* accept the EULA.txt
 * edit the server.properties if you need to
 
 To test your settings, start the server, stop it with a command and check the logs:
 
-	$ minecraftd.sh start
-	$ minecraftd.sh control stop
-	$ minecraftd.sh log
+	$ minecraftd.default.sh start
+	$ minecraftd.default.sh control stop
+	$ minecraftd.default.sh log
 
 
 
@@ -71,7 +66,7 @@ To test your settings, start the server, stop it with a command and check the lo
 
 If you want to log the movements of every player every minute on your server you should add to your crontab:
 
-	* * * * * /path/to/minecraftd.sh tracer 
+	* * * * * /path/to/minecraftd.default.sh tracer 
 
 The variable "\_TRACER\_DATABASE" is the place of the records. The default file is "tracer\_data.sqlite" inside the map directory. If you want to read out the position records, use tracer-client.py.
 
@@ -79,15 +74,15 @@ The variable "\_TRACER\_DATABASE" is the place of the records. The default file 
 
 Write to the crontab:
 
-	0 0 * * * /path/to/minecraftd.sh backup daily
+	0 0 * * * /path/to/minecraftd.default.sh backup daily
 
 ### render the overviewer 
 
 If you want to have an updated overviewer map every 3 hours, write to the crontab:
 
-	0 */3 * * * /home/minecraft/bin/minecraftd.sh overviewer
+	0 */3 * * * /path/to/minecraftd.default.sh overviewer
 
-The html outcome is saved under overviewer/$instance/html. You can symlink it to your homepage or edit the minecraftd.sh function do_overviewer() to your need.
+The html outcome is saved under overviewer/$instance/html. You can symlink it to your homepage or edit the minecraftd-core.sh function do_overviewer() to your need.
 
 
 Usage:
@@ -119,7 +114,8 @@ Usage:
 Multiple instances:
 -------------------
 
-If you want to run multiple instances of minecraft on the same maschine you can copy the minecraftd.sh to minecraftd-diverent.sh and just need to change the variable "\_INSTANCE". Then run minecraftd-diverent.sh install $version.
+If you want to run multiple instances of minecraft on the same maschine you just need to run the installer with a different instance parameter:
+eg.: $ install.sh <version> otherworld
 
 
 Troubleshooting:
@@ -130,4 +126,4 @@ Troubleshooting:
 
 
 
-Everything in this toolset is released under the terms of the GPL3. You can send patches or bugreports to mvst@noxzed.de or merge requests on gitorious.
+Everything in this toolset is released under the terms of the GPL3. You can send patches or bugreports to mvst@noxzed.de or merge requests on github.
