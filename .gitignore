@@ -1,1 +1,6 @@
 ignore/
+backups/
+logs/
+overviewer/
+server/
+tmp/
