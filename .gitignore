@@ -4,3 +4,5 @@ logs/
 overviewer/
 server/
 tmp/
+
+bin/minecraftd.default.sh

@@ -49,6 +49,7 @@ Installation:
 * chmod +x ~/bin/*
 * change the global variables in minecraftd.sh to your needs (if you need to):
 	* "\_MC\_GROUP" and "\_MC\_USER" 
+* change to the ~/bin directory
 * to install run: ~/bin/install.sh <version> [<instance>]
 	* eg: install.sh 1.7.10 default
 * change to the directory ~/server/default/
