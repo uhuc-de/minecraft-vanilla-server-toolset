@@ -22,6 +22,7 @@ def usage():
 
 optional arguments:
 
+	-c usercache.json	Convert UUID to username with the usercache.json
 	-y y				y-coordinate (integer)
 	-d d				Dimension (-1, 0, 1)
 	-r r				Search radius around x, z and y
@@ -44,43 +45,57 @@ def main(argv):
 	until = None
 	since = None
 
+	usercache = None
+
 	verbose = False
 
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hvz:d:r:y:", ["help", "verbose", "since=", "until="] )
+		opts, args = getopt.getopt(argv, "hvz:d:r:y:c:", ["help", "verbose", "since=", "until="] )
 	except getopt.GetoptError:
 		usage()
-		
-		
+	
+	# left over parameter length	
+	p=0
+
 	for opt, arg in opts:
-		
-		if opt == ("-h", "--help"):
+
+		if opt in ("-h", "--help"):
 			usage()
 			
 		elif opt in ("-v", "--verbose"):
 			verbose = True
+			p=p+1
 			
 		elif opt in "-r": 
 			r = int(arg)
+			p=p+2
 			
 		elif opt in "-y": 
 			y = int(arg)
+			p=p+2
 			
 		elif opt in "-d":
 			d = int(arg)
 
+		elif opt in "-c":
+			p=p+2
+			try:
+				usercache=getUserDictFromUserCache(arg)
+			except:
+				print("ERROR: can't read usercache.json!")
+				usage()
+
 		elif opt in "--since":
 			since = arg
+			p=p+1
 
 		elif opt in "--until":
 			until = arg
+			p=p+1
 
-	if verbose:
-		argv = argv[ (len(opts)*2) -1:]
-	else:
-		argv = argv[len(opts)*2:]
-
+	# remove all
+	argv = argv[p:]
 
 	try:
 		x = int(argv[0])
@@ -134,23 +149,24 @@ AND pos_x >= %s AND pos_x <= %s
 		for satz in query:
 			ergebnis.append(satz)
 
+	# convert the uuid to username
+	if usercache != None:
+		tmp=ergebnis
+		ergebnis= []
+		for i in tmp:
+			username = usercache.get(i[1], i[1])
+			j = (i[0], username, i[2], i[3], i[4], i[5])
+			ergebnis.append(j)
+
 	if verbose:
 		print("=== Result: ===")
 
 	sort = sorted(ergebnis, key=lambda tup: tup[0])
 	for i in sort:
-		print(makePrintable(i))
-	# datensätze sortieren (nach zeit)
-	
-	
-	#for key, value in sorted(mydict.iteritems(), key=lambda (k,v): (v,k)):
-    #print "%s: %s" % (key, value)
-    
-    
-	# ausgeben
-
-
-
+		try:
+			print(makePrintable(i))
+		except IOError:
+			exit(0)
 
 
 def getRecordsFromDb(dbfile, sql):
@@ -180,8 +196,6 @@ def getRecordsFromDb(dbfile, sql):
 
 def makePrintable(t):
 	""" Makes the SQL-tubel printable """
-#(1360518780, u'S3l33ngrab', 0, -22.8724823461, 64.1040803781, -282.664357201)
-
 	return "%s %s \t(%s: %.1f / %.1f / %.1f)" % (getPrintTime(t[0]), t[1], t[2], t[3], t[4], t[5] )
 
 
@@ -190,6 +204,21 @@ def getPrintTime(unixtime):
 	""" Returns the Timeformat (YYYY-MM-DD) from the unixtime """
 	return ( datetime.datetime.fromtimestamp(int(unixtime)).strftime('%Y-%m-%d %H:%M') )
 	
+
+def getUserDictFromUserCache(usercache):
+	""" Returns a dict with of the uuids and their usernames """
+	cache = {}
+
+	f = open(usercache,'r')
+	for line in f.read().split('},{'):	
+		name=line.split('"name":"')[1].split("\",\"")[0]
+		uuid=line.split('"uuid":"')[1].split("\",\"")[0].replace("-", "")
+		cache[uuid] = name
+	f.close()
+	return cache
+
+
+
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
