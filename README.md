@@ -36,7 +36,7 @@ Install the dependencies of the toolset:
 * less
 * coreutils
 * bash 
-* nbt (https://github.com/twoolie/NBT)
+* nbt (https://github.com/twoolie/NBT / https://pypi.python.org/pypi/NBT)
 * minecraft-overviewer (http://overviewer.org/)
 * rsync
 
@@ -44,7 +44,7 @@ Installation:
 ------------------
 
 * add a user named "minecraft" to your system
-* login as the user "minecraft"
+* login as user "minecraft"
 * copy the scripts from src/ to ~/bin/
 * install all needed dependencies
 * chmod +x ~/bin/*
