@@ -25,10 +25,38 @@ do_mkdirs() {
 	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/mapcopy"
 	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/output"
 
+# create the instance script
 cat <<EOF > "$_ROOT/bin/minecraftd.$_INSTANCE.sh"
 #!/bin/sh
 _INSTANCE=$_INSTANCE
+source "$_ROOT/bin/$_INSTANCE.conf"
 source "$_ROOT/bin/minecraftd-core.sh"
+EOF
+
+# create the instance configfile
+cat <<EOF > "$_ROOT/bin/$_INSTANCE.conf"
+## CONFIGFILE for the instance: $_INSTANCE
+
+# All *DIRs without tailing "/"!
+MAINDIR="/home/minecraft"
+
+# loglevel: 1 = Debug ... 5 = Critical
+LOGLEVEL=1
+
+LOGFILE="$MAINDIR/logs/mvst_${_INSTANCE}.log"
+
+# user and group who should run the server
+MC_USER="minecraft"
+MC_GROUP="minecraft"
+
+# line which executes the overviewer
+OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/overviewer/$_INSTANCE/mapcopy $MAINDIR/overviewer/$_INSTANCE/output "
+
+# list files beside the map which should be inside the backupfile
+# tar (..options..) $_MAPNAME $BACKUP_FILELIST
+# the list need to inside double quotes
+BACKUP_FILELIST="whitelist.json server.properties banned-players.json"
+
 EOF
 
 

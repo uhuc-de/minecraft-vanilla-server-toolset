@@ -6,3 +6,4 @@ server/
 tmp/
 
 bin/minecraftd.default.sh
+bin/*.conf

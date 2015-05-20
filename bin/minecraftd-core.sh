@@ -5,15 +5,11 @@
 ## Primary variables
 
 
-# All *DIRs without tailing "/"!
-MAINDIR="/home/minecraft"
 
-
-_MC_USER="minecraft"
-_MC_GROUP="minecraft"
-
-_LOGLEVEL=1
-# 1 = Debug ... 5 = Critical
+_MC_USER=$MC_USER
+_MC_GROUP=$MC_GROUP
+_LOGLEVEL=$LOGFILE
+_LOGFILE=$LOGFILE
 
 
 _DIR_SERVER="${MAINDIR}/server/${_INSTANCE}"
@@ -25,7 +21,6 @@ _DIR_OVERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
 
 
 _OVERVIEWER_SETTINGS="${_DIR_OVERVIEWER}/settings.py"
-_LOGFILE="${_DIR_LOGS}/mvst_${_INSTANCE}.log"
 _CLIENT_JAR="${_DIR_SERVER}/minecraft_client.jar"
 
 
@@ -42,7 +37,7 @@ if [[ $? == 2 ]] # grep file not found
 then
 	_MAPNAME=world
 else
-	_MAPNAME=$(grep -q "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
+	_MAPNAME=$(grep "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
 fi
 
 
@@ -219,8 +214,8 @@ do_overviewer() {
 		start_saves overviewercopy
 	fi
 
-	nice -n 10 ${_BIN_OVERVIEWER} --quiet "${_DIR_OVERVIEWER}/mapcopy" "${_DIR_OVERVIEWER}/html" 2>> $_LOGFILE 
-
+	nice -n 10 $OVERVIEWER_CMD 2>> $_LOGFILE >> /dev/null
+	
 	if $running; then
 		endt=$(date +%s)
 		diff=$(( $(($endt - $startt)) / 60 ))
@@ -250,8 +245,8 @@ do_backup() {
 	fi	
 
 	sleep 3
-	filelist="$_MAPNAME whitelist.json server.properties banned-players.json"
-	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}" -f "${backupfile}.tar.bz2" $filelist
+
+	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}" -f "${backupfile}.tar.bz2" $_MAPNAME $BACKUP_FILELIST
 
 	# generate md5sum
 	cd $_DIR_BACKUP
@@ -322,27 +317,6 @@ do_log() {
 	less +G ${_LOGFILE}
 }
 
-#### INSTALL ####
-
-do_install() {
-	if [[ -z "$1" ]]; then
-		usage
-	fi
-	version=$1
-
-	echo "Make the directories..."
-	mkdir -p -v  ${_DIR_SERVER}
-	mkdir -p -v  ${_DIR_BACKUP}
-	mkdir -p -v  ${_DIR_LOGS}
-	mkdir -p -v  ${_DIR_TMP}
-	mkdir -p -v  ${_DIR_OVERVIEWER}/html
-
-	echo "Download the jars..."
-	$_BIN_WGET -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
-	$_BIN_WGET -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
-
-	echo "...done"
-}
 
 ### WRITES TO LOGFILE ###
 
