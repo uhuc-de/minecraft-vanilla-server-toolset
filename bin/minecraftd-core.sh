@@ -281,6 +281,8 @@ do_update() {
 		usage
 	fi
 
+	do_backup "update_$(echo "1.8.4" | tr '.' '_')"
+
 	time=`date '+%Y-%m-%d-%H-%M-%S'`
 	version=$1
 	start="no"
