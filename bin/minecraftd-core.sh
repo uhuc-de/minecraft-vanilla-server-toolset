@@ -9,8 +9,8 @@
 _MC_USER=$MC_USER
 _MC_GROUP=$MC_GROUP
 _LOGLEVEL=$LOGFILE
-_LOGFILE=$LOGFILE
 
+_LOGFILE="$MAINDIR/logs/mvst_${_INSTANCE}.log"
 
 _DIR_SERVER="${MAINDIR}/server/${_INSTANCE}"
 _DIR_BACKUP="${MAINDIR}/backups/${_INSTANCE}"
@@ -18,10 +18,6 @@ _DIR_MVSTBIN="${MAINDIR}/bin"
 _DIR_TMP="${MAINDIR}/tmp"
 _DIR_LOGS="${MAINDIR}/logs"
 _DIR_OVERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
-
-
-_OVERVIEWER_SETTINGS="${_DIR_OVERVIEWER}/settings.py"
-_CLIENT_JAR="${_DIR_SERVER}/minecraft_client.jar"
 
 
 _BIN_PYTHON2=`which python2`
@@ -319,7 +315,7 @@ do_update() {
 		# Changing ownership
 		echo -n "Changing ownership... "
 		chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_server.jar"
-		chown $_MC_USER:$_MC_GROUP "$_CLIENT_JAR"
+		chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_client.jar"
 		echo "Done"
 
 		# Write current version to file

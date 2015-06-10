@@ -28,22 +28,15 @@ do_mkdirs() {
 # create the instance script
 cat <<EOF > "$_ROOT/bin/minecraftd.$_INSTANCE.sh"
 #!/bin/sh
+# Dont change something you dont understand!
+
 _INSTANCE=$_INSTANCE
-source "$_ROOT/bin/$_INSTANCE.conf"
-source "$_ROOT/bin/minecraftd-core.sh"
-EOF
 
-# create the instance configfile
-cat <<EOF > "$_ROOT/bin/$_INSTANCE.conf"
-## CONFIGFILE for the instance: $_INSTANCE
-
-# All *DIRs without tailing "/"!
+# All Directories without tailing "/"!
 MAINDIR="/home/minecraft"
 
 # loglevel: 1 = Debug ... 5 = Critical
 LOGLEVEL=1
-
-LOGFILE="$MAINDIR/logs/mvst_${_INSTANCE}.log"
 
 # user and group who should run the server
 MC_USER="minecraft"
@@ -57,6 +50,8 @@ OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/overviewer/$_INSTANCE/mapcopy $MA
 # the list need to inside double quotes
 BACKUP_FILELIST="whitelist.json server.properties banned-players.json"
 
+## END OF CONFIG ##
+source "$_ROOT/bin/mvst-core.sh"
 EOF
 
 
