@@ -281,27 +281,61 @@ do_update() {
 		usage
 	fi
 
-	do_backup "update_$(echo "1.8.4" | tr '.' '_')"
+	echo "Update from $(cat ${_DIR_SERVER}/version) to $1"
 
 	time=`date '+%Y-%m-%d-%H-%M-%S'`
 	version=$1
 	start="no"
-	if is_running; then
-		say "Server going down for update"
-		do_stop
-		start="yes"
-	fi
-	# Download the jars
-	$_BIN_WGET -O "${_DIR_SERVER}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
-	$_BIN_WGET -O "$_CLIENT_JAR" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
 
-	echo -n "Changing ownership "
-	chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_server.jar"
-	chown $_MC_USER:$_MC_GROUP "$_CLIENT_JAR"
+	# Download the jars
+	echo -n "Download server.jar... "
+	$_BIN_WGET -q -O "${_DIR_TMP}/minecraft_server.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/minecraft_server.${version}.jar"
+	r1=$?
+	echo "Done"
+	echo -n "Download client.jar... "
+	$_BIN_WGET -q -O "${_DIR_TMP}/minecraft_client.jar" "http://s3.amazonaws.com/Minecraft.Download/versions/${version}/${version}.jar"
+	r2=$?
 	echo "Done"
 
+	# Check if download was successfull
+	if [ "$r1" == "0" ] && [ "$r2" == "0" ]; then
+
+		echo -n "Backup... "
+		do_backup "update_$(echo "$version" | tr '.' '_')"
+		echo "Done"
+
+		if is_running; then
+			echo -n "Shutdown server... "
+			say "Update to version $version: Server is going to restart!"
+			do_stop
+			start="yes"
+			echo "Done"
+		fi
+
+		# Move jars to serverdir
+		mv "${_DIR_TMP}/minecraft_server.jar" "${_DIR_SERVER}/minecraft_server.jar"
+		mv "${_DIR_TMP}/minecraft_client.jar" "${_DIR_SERVER}/minecraft_client.jar"
+
+		# Changing ownership
+		echo -n "Changing ownership... "
+		chown $_MC_USER:$_MC_GROUP "${_DIR_SERVER}/minecraft_server.jar"
+		chown $_MC_USER:$_MC_GROUP "$_CLIENT_JAR"
+		echo "Done"
+
+		# Write current version to file
+		echo "$version" > "${_DIR_SERVER}/version"
+	else
+		# Download failed
+		rm "${_DIR_TMP}/minecraft_server.jar" "${_DIR_TMP}/minecraft_client.jar"
+		echo "Couldn't download the files. Maybe the version was wrong?"
+		echo "exit codes of wget were $r1 and $r2"
+	fi
+
+
 	if [[ "${start}" == "yes" ]]; then
+		echo -n "Start server... "
 		do_start
+		echo "Done"
 	fi
 }
 
