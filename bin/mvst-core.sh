@@ -182,23 +182,19 @@ do_whitelist() {
 
 }
 
+
 #### OVERVIEWER ####
 
 do_overviewer() {
 	log "Perform overviewer"
-	if test '(' `find "$_DIR_TMP" -iname "${_INSTANCE}-save-lock-overviewer" | wc -l` == 0 ')'; then
-		touch "$_DIR_TMP/${_INSTANCE}-save-lock-overviewer"
-	else
-		s="Overviewer still running: abort rendering" 
-		echo $s
-		log $s
+
+	if ! $(do_setlock "overviewer") ; then
+		log_warning "Overviewer still running: abort rendering" 
 		exit 1
 	fi		
 
-
-	running=is_running
-	if $running; then
-		startt=$(date +%s)
+	startt=$(date +%s)
+	if is_running; then
 		say "Start mapping..."
 		suspend_saves overviewercopy
 		sleep 3
@@ -206,19 +202,25 @@ do_overviewer() {
 
 	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/mapcopy"
 
-	if $running; then
+	if is_running; then
 		start_saves overviewercopy
 	fi
 
 	nice -n 10 $OVERVIEWER_CMD 2>> $_LOGFILE >> /dev/null
-	
-	if $running; then
-		endt=$(date +%s)
-		diff=$(( $(($endt - $startt)) / 60 ))
 
+	endt=$(date +%s)
+	diff=$(( $(($endt - $startt)) / 60 ))	
+	if is_running; then
 		say "Finished mapping in $diff minutes"
 	fi
-	rm "$_DIR_TMP/${_INSTANCE}-save-lock-overviewer"
+	
+	log "Finished mapping in $diff minutes"	
+
+	if ! $(do_releaselock "overviewer") ; then
+		log_error "Cant release lockfile!" 
+		exit 1
+	fi
+
 }
 
 #### BACKUP ####
@@ -350,7 +352,7 @@ do_log() {
 }
 
 
-### WRITES TO LOGFILE ###
+### WRITE TO LOGFILE ###
 
 log() {
 	a=$(date +"%F %T,")
@@ -358,10 +360,63 @@ log() {
 	echo "$a$b|mvst|INFO|$@" >> $_LOGFILE
 }
 
+log_error() {
+	a=$(date +"%F %T,")
+	b=$(date +%N | cut -b1-3)
+	echo "$a$b|mvst|ERROR|$@" >> $_LOGFILE
+}
 
+log_warning() {
+	a=$(date +"%F %T,")
+	b=$(date +%N | cut -b1-3)
+	echo "$a$b|mvst|WARNING|$@" >> $_LOGFILE
+}
 
 
 #### MAIN STUFF ####
+
+# Set a lockfile with a specific name
+# returncodes:
+# 0 lockfile was created successfully
+# 1 lockfile already exists
+# 2 empty variable $1
+do_setlock() {
+	if [ ! -z "$1" ]; then
+		lock="${_DIR_TMP}/${_INSTANCE}-${1}.lock"
+		if [ ! -f "$lock" ]; then
+			touch "$lock"
+		else
+			log_error "Lockfile $lock already exists!"
+			return 1
+		fi
+	else
+		log_error "No name set for lockfile!"
+		return 2
+	fi
+	return 0
+}
+
+# release the lock with the specific name
+# returncodes:
+# 0 successfully release lock
+# 1 lockfile not found
+# 2 empty lockfile variable
+do_releaselock() {
+	if [ ! -z "$1" ]; then
+		lock="${_DIR_TMP}/${_INSTANCE}-${1}.lock"
+		if [ -f "$lock" ]; then
+			rm "$lock"
+		else
+			log_error "Lockfile $lock doesn't exists!"
+			return 1
+		fi
+	else
+		log_error "No name set for lockfile!"
+		return 2
+	fi
+	return 0
+}
+
 
 
 
