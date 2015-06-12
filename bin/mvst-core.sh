@@ -24,7 +24,15 @@ _BIN_DAEMON=`which start-stop-daemon`
 _BIN_OVERVIEWER=`which overviewer.py`
 _BIN_WGET=`which wget`
 
-## Secondary variables
+
+# Loglevel variables
+_CRITICAL=5
+_ERROR=4
+_WARNING=3
+_INFO=2
+_DEBUG=1
+
+
 
 # Get name of the world
 grep -q "level-name" "${_DIR_SERVER}/server.properties" 2> /dev/null 
@@ -143,7 +151,7 @@ say() {
 
 # Copys the map into the share folder
 do_servercopy() {
-	log "mvst" "DEBUG" "Perform servercopy"
+	log "mvst" $_DEBUG "Perform servercopy"
 
 	if ! $(do_setlock "servercopy") ; then
 		exit 1
@@ -179,7 +187,7 @@ do_whitelist() {
 		exit 1
 	fi
 
-	log "mvst" "INFO" "Add to whitelist: $1"
+	log "mvst" $_INFO "Add to whitelist: $1"
 	if [ ! is_running ]; then
 		echo "Couldn't connect to the server!"
 	else
@@ -198,10 +206,10 @@ do_whitelist() {
 #### OVERVIEWER ####
 
 do_overviewer() {
-	log "overviewer" "DEBUG" "Perform overviewer"
+	log "overviewer" $_DEBUG "Perform overviewer"
 
 	if ! $(do_setlock "overviewer") ; then
-		log "overviewer" "WARNING" "Overviewer still running: abort rendering" 
+		log "overviewer" $_WARNING "Overviewer still running: abort rendering" 
 		exit 1
 	fi		
 
@@ -222,10 +230,10 @@ do_overviewer() {
 		say "Finished mapping in $diff minutes"
 	fi
 	
-	log "overviewer" "INFO" "Finished mapping in $diff minutes"	
+	log "overviewer" $_INFO "Finished mapping in $diff minutes"	
 
 	if ! $(do_releaselock "overviewer") ; then
-		log "overviewer" "ERROR" "Cant release lockfile!" 
+		log "overviewer" $_ERROR "Cant release lockfile!" 
 		exit 1
 	fi
 
@@ -243,7 +251,7 @@ do_backup() {
 	time=`date '+%Y-%m-%d-%H%M%S'`
 	backupfile=${_DIR_BACKUP}/${time}_${reason}
 
-	log "backup" "INFO" "Perform backup ${reason}"
+	log "backup" $_DEBUG "Perform backup ${reason}"
 	running=is_running
 	if $running; then
 		say "Performing world backup ,,${reason}''"
@@ -275,7 +283,7 @@ do_backup() {
 	if $running; then
 		say "Backup complete"
 	fi	
-	log "backup" "INFO" "Backup saved as $(basename $backupfile.tar.bz2)"
+	log "backup" $_INFO "Backup saved as $(basename $backupfile.tar.bz2)"
 }
 
 
@@ -335,7 +343,7 @@ do_update() {
 
 		# Write current version to file
 		echo "$version" > "${_DIR_SERVER}/version"
-		log "mvst" "INFO" "Update to $version successful"
+		log "mvst" $_INFO "Update to $version successful"
 	else
 		# Download failed
 		rm "${_DIR_TMP}/minecraft_server.jar" "${_DIR_TMP}/minecraft_client.jar"
@@ -373,9 +381,21 @@ do_log() {
 # $2 = loglevel (eg. INFO, ERROR etc)
 # $3 = logtext
 log() {
-	a=$(date +"%F %T,")
-	b=$(date +%N | cut -b1-3)
-	echo "$a$b|$1|$2|$3" >> $_LOGFILE
+	if [ ! $2 -lt $_LOGLEVEL ]; then
+		a=$(date +"%F %T,")
+		b=$(date +%N | cut -b1-3)
+		if [ $2 == "1" ]; then
+			echo "$a$b|$1|DEBUG|$3" >> $_LOGFILE
+		elif [ $2 == "2" ]; then
+			echo "$a$b|$1|INFO|$3" >> $_LOGFILE
+		elif [ $2 == "3" ]; then
+			echo "$a$b|$1|WARNING|$3" >> $_LOGFILE
+		elif [ $2 == "4" ]; then
+			echo "$a$b|$1|ERROR|$3" >> $_LOGFILE
+		elif [ $2 == "5" ]; then
+			echo "$a$b|$1|CRITICAL|$3" >> $_LOGFILE
+		fi
+	fi
 }
 
 
@@ -393,11 +413,11 @@ do_setlock() {
 		if [ ! -f "$lock" ]; then
 			touch "$lock"
 		else
-			log "mvst" "WARNING" "Lockfile $lock already exists!"
+			log "mvst" $_WARNING "Lockfile $lock already exists!"
 			return 1
 		fi
 	else
-		log "mvst" "ERROR" "No name set for lockfile!"
+		log "mvst" $_ERROR "No name set for lockfile!"
 		return 2
 	fi
 	return 0
@@ -414,11 +434,11 @@ do_releaselock() {
 		if [ -f "$lock" ]; then
 			rm "$lock"
 		else
-			log "mvst" "WARNING" "Lockfile $lock doesn't exists!"
+			log "mvst" $_WARNING "Lockfile $lock doesn't exists!"
 			return 1
 		fi
 	else
-		log "mvst" "ERROR" "No name set for lockfile!"
+		log "mvst" $_ERROR "No name set for lockfile!"
 		return 2
 	fi
 	return 0
