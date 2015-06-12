@@ -275,7 +275,7 @@ do_backup() {
 	if $running; then
 		say "Backup complete"
 	fi	
-	log "backup" "INFO" "Backup saved to $backupfile.tar.bz2"
+	log "backup" "INFO" "Backup saved as $(basename $backupfile.tar.bz2)"
 }
 
 
@@ -285,6 +285,11 @@ do_backup() {
 do_update() {
 	if [[ -z "$1" ]]; then
 		usage
+	fi
+
+	if [ $(cat ${_DIR_SERVER}/version) == $1 ]; then
+		echo "No update necessary. Server is already on version $1"
+		exit 0
 	fi
 
 	echo "Update from $(cat ${_DIR_SERVER}/version) to $1"
