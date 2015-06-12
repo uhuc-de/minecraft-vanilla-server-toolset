@@ -16,8 +16,6 @@ _DIR_SERVER="${MAINDIR}/server/${_INSTANCE}"
 _DIR_BACKUP="${MAINDIR}/backups/${_INSTANCE}"
 _DIR_MVSTBIN="${MAINDIR}/bin"
 _DIR_TMP="${MAINDIR}/tmp"
-_DIR_LOGS="${MAINDIR}/logs"
-#_ERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
 _DIR_SHARE="${MAINDIR}/share/${_INSTANCE}"
 
 
@@ -145,7 +143,7 @@ say() {
 
 # Copys the map into the share folder
 do_servercopy() {
-	log "Perform servercopy"
+	log "mvst" "DEBUG" "Perform servercopy"
 
 	if ! $(do_setlock "servercopy") ; then
 		exit 1
@@ -181,6 +179,7 @@ do_whitelist() {
 		exit 1
 	fi
 
+	log "mvst" "INFO" "Add to whitelist: $1"
 	if [ ! is_running ]; then
 		echo "Couldn't connect to the server!"
 	else
@@ -199,10 +198,10 @@ do_whitelist() {
 #### OVERVIEWER ####
 
 do_overviewer() {
-	log "Perform overviewer"
+	log "overviewer" "DEBUG" "Perform overviewer"
 
 	if ! $(do_setlock "overviewer") ; then
-		log_warning "Overviewer still running: abort rendering" 
+		log "overviewer" "WARNING" "Overviewer still running: abort rendering" 
 		exit 1
 	fi		
 
@@ -223,10 +222,10 @@ do_overviewer() {
 		say "Finished mapping in $diff minutes"
 	fi
 	
-	log "Finished mapping in $diff minutes"	
+	log "overviewer" "INFO" "Finished mapping in $diff minutes"	
 
 	if ! $(do_releaselock "overviewer") ; then
-		log_error "Cant release lockfile!" 
+		log "overviewer" "ERROR" "Cant release lockfile!" 
 		exit 1
 	fi
 
@@ -244,7 +243,7 @@ do_backup() {
 	time=`date '+%Y-%m-%d-%H%M%S'`
 	backupfile=${_DIR_BACKUP}/${time}_${reason}
 
-	log "Perform backup ${reason}"
+	log "backup" "INFO" "Perform backup ${reason}"
 	running=is_running
 	if $running; then
 		say "Performing world backup ,,${reason}''"
@@ -276,6 +275,7 @@ do_backup() {
 	if $running; then
 		say "Backup complete"
 	fi	
+	log "backup" "INFO" "Backup saved to $backupfile.tar.bz2"
 }
 
 
@@ -330,6 +330,7 @@ do_update() {
 
 		# Write current version to file
 		echo "$version" > "${_DIR_SERVER}/version"
+		log "mvst" "INFO" "Update to $version successful"
 	else
 		# Download failed
 		rm "${_DIR_TMP}/minecraft_server.jar" "${_DIR_TMP}/minecraft_client.jar"
@@ -362,23 +363,16 @@ do_log() {
 
 ### WRITE TO LOGFILE ###
 
+# writes the logs
+# $1 = subfunction (eg. mvst, wrapper)
+# $2 = loglevel (eg. INFO, ERROR etc)
+# $3 = logtext
 log() {
 	a=$(date +"%F %T,")
 	b=$(date +%N | cut -b1-3)
-	echo "$a$b|mvst|INFO|$@" >> $_LOGFILE
+	echo "$a$b|$1|$2|$3" >> $_LOGFILE
 }
 
-log_error() {
-	a=$(date +"%F %T,")
-	b=$(date +%N | cut -b1-3)
-	echo "$a$b|mvst|ERROR|$@" >> $_LOGFILE
-}
-
-log_warning() {
-	a=$(date +"%F %T,")
-	b=$(date +%N | cut -b1-3)
-	echo "$a$b|mvst|WARNING|$@" >> $_LOGFILE
-}
 
 
 #### MAIN STUFF ####
@@ -394,11 +388,11 @@ do_setlock() {
 		if [ ! -f "$lock" ]; then
 			touch "$lock"
 		else
-			log_error "Lockfile $lock already exists!"
+			log "mvst" "WARNING" "Lockfile $lock already exists!"
 			return 1
 		fi
 	else
-		log_error "No name set for lockfile!"
+		log "mvst" "ERROR" "No name set for lockfile!"
 		return 2
 	fi
 	return 0
@@ -415,11 +409,11 @@ do_releaselock() {
 		if [ -f "$lock" ]; then
 			rm "$lock"
 		else
-			log_error "Lockfile $lock doesn't exists!"
+			log "mvst" "WARNING" "Lockfile $lock doesn't exists!"
 			return 1
 		fi
 	else
-		log_error "No name set for lockfile!"
+		log "mvst" "ERROR" "No name set for lockfile!"
 		return 2
 	fi
 	return 0
