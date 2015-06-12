@@ -137,29 +137,41 @@ do_control() {
 	fi
 }
 
+
 say() {
 	do_control /say $@
 }
 
-suspend_saves() {
-	# id = lock reason
-	id=$1
-	shift
-	if test '(' `find "$_DIR_TMP" -iname "${_INSTANCE}-save-lock-*" | wc -l` == 0 ')'; then
+
+# Copys the map into the share folder
+do_servercopy() {
+	log "Perform servercopy"
+
+	if ! $(do_setlock "servercopy") ; then
+		exit 1
+	fi	
+
+	# suspend saves
+	if is_running; then
 		do_control "save-off"
 		do_control "save-all"
-	fi
-	touch "$_DIR_TMP/${_INSTANCE}-save-lock-$id"
-}
+		sleep 5
+	fi	
 
-start_saves() {
-	id=$1
-	shift
-	[[ -f "${_DIR_TMP}/${_INSTANCE}-save-lock-$id" ]] && rm "${_DIR_TMP}/${_INSTANCE}-save-lock-$id"
-	if test '(' `find "${_DIR_TMP}" -iname "${_INSTANCE}-save-lock-*" | wc -l` == 0 ')'; then
+	# copy map
+	rsync -a "${_DIR_SERVER}/" "${_DIR_SHARE}/servercopy"
+
+	# start saves
+	if is_running; then
 		do_control "save-on"
 	fi
+
+	# release lock
+	if ! $(do_releaselock "servercopy") ; then
+		exit 1
+	fi
 }
+
 
 #### WHITELIST ####
 
@@ -197,15 +209,11 @@ do_overviewer() {
 	startt=$(date +%s)
 	if is_running; then
 		say "Start mapping..."
-		suspend_saves overviewercopy
-		sleep 3
 	fi	
-
-	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "${_DIR_SHARE}/mapcopy"
-
-	if is_running; then
-		start_saves overviewercopy
-	fi
+	
+	if ! do_servercopy ; then
+		exit 1
+	fi	
 
 	nice -n 10 $OVERVIEWER_CMD 2>> $_LOGFILE >> /dev/null
 
@@ -240,21 +248,17 @@ do_backup() {
 	running=is_running
 	if $running; then
 		say "Performing world backup ,,${reason}''"
-		suspend_saves backup
+	fi	
+	
+	if ! do_servercopy ; then
+		exit 1
 	fi	
 
-	sleep 3
-
-	tar -c -jh --exclude-vcs -C "${_DIR_SERVER}" -f "${backupfile}.tar.bz2" $_MAPNAME $BACKUP_FILELIST
+	tar -c -jh --exclude-vcs -C "${_DIR_SHARE}/servercopy" -f "${backupfile}.tar.bz2" ${_MAPNAME} $BACKUP_FILELIST
 
 	# generate md5sum
 	cd $_DIR_BACKUP
 	md5sum "${time}_${reason}.tar.bz2" > "${backupfile}.tar.bz2.md5"
-
-	if $running; then
-		start_saves backup
-		say "Backup complete"
-	fi	
 
 	cd $_DIR_BACKUP
 	# symlink the bz2
@@ -269,6 +273,9 @@ do_backup() {
 	fi
 	ln -s `ls $_DIR_BACKUP/*.tar.bz2.md5 | sort -n | tail -n 1` latest.tar.bz2.md5
 
+	if $running; then
+		say "Backup complete"
+	fi	
 }
 
 

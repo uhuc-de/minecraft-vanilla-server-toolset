@@ -45,7 +45,7 @@ MC_USER="minecraft"
 MC_GROUP="minecraft"
 
 # line which executes the overviewer
-OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/share/$_INSTANCE/mapcopy $MAINDIR/share/$_INSTANCE/overviewer "
+OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/share/$_INSTANCE/servercopy/world $MAINDIR/share/$_INSTANCE/overviewer "
 
 # list files beside the map which should be inside the backupfile
 # tar (..options..) $_MAPNAME $BACKUP_FILELIST
