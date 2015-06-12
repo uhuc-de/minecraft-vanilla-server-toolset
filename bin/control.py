@@ -66,8 +66,8 @@ try :
 	client.connect(socketfile)
 	connected = True
 except :
-	sys.stderr.write("can't connect to socket: %s\n" % socketfile)
-	sys.exit(-1)
+	sys.stdout.write("can't connect to socket: %s\n" % socketfile)
+	sys.exit(2)
 
 if check:
 	sys.exit(0)

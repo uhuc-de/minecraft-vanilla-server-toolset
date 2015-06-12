@@ -125,20 +125,30 @@ do_status() {
 }
 
 is_running() {
-	$_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET --check 2> /dev/null
-
-	if [[ $? == 0 ]]; then
+	$_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET --check > /dev/null 2>> $_LOGFILE
+	r=$?
+	if [ $r == "0" ] ; then
 		return 0
+	elif [ $r == "2" ] ; then
+		log "mvst" $_WARNING "Can't connect to socket!"
+		return 1
 	else
+		log "mvst" $_ERROR "Unknown error inside control.py"
 		return 1
 	fi
 }
 
 
 do_control() {
-	if echo $@ | $_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET 2>> $_LOGFILE ; then
+	echo $@ | $_BIN_PYTHON2 $_DIR_MVSTBIN/control.py -s $_WRAPPER_SOCKET 2>> $_LOGFILE > /dev/null
+	r=$?
+	if [ $r == "0" ] ; then
 		return 0
+	elif [ $r == "2" ] ; then
+		log "mvst" $_WARNING "Can't connect to socket!"
+		return 1
 	else
+		log "mvst" $_ERROR "Unknown error inside control.py"
 		return 1
 	fi
 }
