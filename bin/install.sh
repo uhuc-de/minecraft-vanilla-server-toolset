@@ -10,9 +10,6 @@ do_usage() {
 }
 
 
-
-
-
 do_mkdirs() {
 	_ROOT=$1
 	_INSTANCE=$2
@@ -22,8 +19,8 @@ do_mkdirs() {
 	mkdir -p -v  "$_ROOT/backups/$_INSTANCE/"
 	mkdir -p -v  "$_ROOT/logs/"
 	mkdir -p -v  "$_ROOT/tmp/"
-	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/mapcopy"
-	mkdir -p -v  "$_ROOT/overviewer/$_INSTANCE/output"
+	mkdir -p -v  "$_ROOT/share/$_INSTANCE/mapcopy"
+	mkdir -p -v  "$_ROOT/share/$_INSTANCE/overviewer"
 
 # create the instance script
 cat <<EOF > "$_ROOT/bin/minecraftd.$_INSTANCE.sh"
@@ -48,7 +45,7 @@ MC_USER="minecraft"
 MC_GROUP="minecraft"
 
 # line which executes the overviewer
-OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/overviewer/$_INSTANCE/mapcopy $MAINDIR/overviewer/$_INSTANCE/output "
+OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/share/$_INSTANCE/mapcopy $MAINDIR/share/$_INSTANCE/overviewer "
 
 # list files beside the map which should be inside the backupfile
 # tar (..options..) $_MAPNAME $BACKUP_FILELIST

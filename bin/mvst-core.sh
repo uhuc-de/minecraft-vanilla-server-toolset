@@ -17,7 +17,8 @@ _DIR_BACKUP="${MAINDIR}/backups/${_INSTANCE}"
 _DIR_MVSTBIN="${MAINDIR}/bin"
 _DIR_TMP="${MAINDIR}/tmp"
 _DIR_LOGS="${MAINDIR}/logs"
-_DIR_OVERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
+#_ERVIEWER="${MAINDIR}/overviewer/${_INSTANCE}"
+_DIR_SHARE="${MAINDIR}/share/${_INSTANCE}"
 
 
 _BIN_PYTHON2=`which python2`
@@ -200,7 +201,7 @@ do_overviewer() {
 		sleep 3
 	fi	
 
-	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "$_DIR_OVERVIEWER/mapcopy"
+	rsync -a "${_DIR_SERVER}/${_MAPNAME}/" "${_DIR_SHARE}/mapcopy"
 
 	if is_running; then
 		start_saves overviewercopy
