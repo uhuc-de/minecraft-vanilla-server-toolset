@@ -1,7 +1,7 @@
 Minecraft Vanilla Server Toolset
 ================================
 
-The Minecraft Vanilla Server Toolset version 2 (mvst2) is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" Window where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you like.
+The Minecraft Vanilla Server Toolset is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" window, where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you like.
 
 
 Features
@@ -10,7 +10,7 @@ Features
 * provides 100% vanilla minecraft
 * start/stop the minecraft server like a daemon
 * creates a unix socket to talk to the server
-* backup the map weekly and daily
+* backup the map daily
 * update minecraft easily
 * records the positions of every player in the game and saves them into a sqlite file
 * modular design

@@ -1,9 +1,8 @@
 ignore/
 backups/
 logs/
-overviewer/
+share/
 server/
 tmp/
 
 bin/minecraftd.default.sh
-bin/*.conf
