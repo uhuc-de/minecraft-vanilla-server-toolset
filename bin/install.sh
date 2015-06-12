@@ -35,8 +35,13 @@ _INSTANCE=$_INSTANCE
 # All Directories without tailing "/"!
 MAINDIR="/home/minecraft"
 
-# loglevel: 1 = Debug ... 5 = Critical
-LOGLEVEL=1
+# Level	Numeric value:
+# 5 CRITICAL
+# 4 ERROR
+# 3 WARNING
+# 2 INFO
+# 1 DEBUG
+LOGLEVEL=2
 
 # user and group who should run the server
 MC_USER="minecraft"
