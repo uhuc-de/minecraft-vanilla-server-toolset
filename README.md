@@ -19,7 +19,7 @@ Features
 Download
 -----------------
 
-Visit https://gitorious.org/mvst2/mvst2 to download the source or clone it with git.
+Visit https://github.com/uhuc-de/minecraft-vanilla-server-toolset to download the source or clone it with git.
 
 
 Dependencies:
