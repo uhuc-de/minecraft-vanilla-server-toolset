@@ -148,7 +148,7 @@ do_control() {
 		log "mvst" $_WARNING "Can't connect to socket!"
 		return 1
 	else
-		log "mvst" $_ERROR "Unknown error inside control.py"
+		log "mvst" $_ERROR "Unknown error inside control.py (returncode=$r)"
 		return 1
 	fi
 }
