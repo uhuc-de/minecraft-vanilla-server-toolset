@@ -28,6 +28,7 @@ optional arguments:
 	-r <realname>	Realname of the bot
 	-n <nick>	Nickname of the bot
 	-p <port>	Port of the irc server
+	-l <file>	Logfile
 	-h	--help	Shows this message
 """)	
 	sys.exit(2)
@@ -36,19 +37,22 @@ optional arguments:
 
 """ main method """
 def main(argv):
+
 	# default values	
 	IDENT="mvstMcBridge"
 	REALNAME="MvstBot"
 	NICK="mvstMcBridge"
 	PORT=6667
 	HOST="irc.host.net"
-	CHANNEL="#mychannel"
+	CHANNEL="mychannel"
 	SOCKETFILE="../tmp/wrapper_default.socket"
+	LOGFILE=""
+
 
 	argv=sys.argv[1:]
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hi:r:n:p:", ["help"] )
+		opts, args = getopt.getopt(argv, "hl:i:r:n:p:", ["help"] )
 	except getopt.GetoptError:
 		usage()
 
@@ -67,6 +71,8 @@ def main(argv):
 			REALNAME=arg
 		elif opt in "-n":
 			NICK=arg
+		elif opt in "-l":
+			LOGFILE=arg
 		elif opt in "-p":
 			try: 
 				PORT=int(arg)
@@ -77,14 +83,22 @@ def main(argv):
 			print("unknown argument!")
 			usage()
 
+	# init logging
+	formatter = '%(asctime)s|irc|%(levelname)s|%(message)s'
+	if LOGFILE == "":
+		logging.basicConfig(level=logging.INFO,format=formatter)
+	else:
+		logging.basicConfig(filename=LOGFILE,level=logging.INFO,format=formatter)
+
+
 	# change values with fixed arguments
 	SOCKETFILE=argv[-3]
 	HOST=argv[-2]
 	CHANNEL=argv[-1]
 
 	if not os.path.exists(SOCKETFILE): 
-		print ("ERROR: socketfile not found: %s" % SOCKETFILE)
-		usage()
+		logging.critical("ERROR: socketfile not found: %s" % SOCKETFILE)
+		sys.exit(3)
 	try:
 
 		# connect to IRC
@@ -97,7 +111,7 @@ def main(argv):
 		client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 		client.connect(SOCKETFILE)
 
-		print("connected %s@%s:%s/#%s with %s" % (NICK, HOST, PORT, CHANNEL, SOCKETFILE) )
+		logging.info("connected %s@%s:%s/#%s with %s" % (NICK, HOST, PORT, CHANNEL, SOCKETFILE) )
 
 		readbuffer = ""
 		while 1:
@@ -105,8 +119,10 @@ def main(argv):
 			try:
 				read_sockets,write_sockets,error_sockets = select.select([s, client],[],[],1)
 			except select.error as e:
+				logging.info("select error")
 				break
 			except socket.error as e:
+				logging.info("socket error")
 				break
 
 			for sock in read_sockets:
@@ -114,6 +130,10 @@ def main(argv):
 				if sock == client: 
 				
 					data = sock.recv(1024) 
+					if len(data) == 0:
+						logging.critical("minecraft socket closed -> exit")
+						sys.exit(3)
+
 					text = data.strip().decode("UTF-8", errors='replace')
 
 					# check if "not-whitelisted"-message an send it to ingame and irc
@@ -181,11 +201,14 @@ def main(argv):
 							client.send( t.encode("utf-8", errors='replace') )
 
 				else:
-					print("unknown Socket - should not happen 0_o")
+					logging.warning("unknown Socket - should not happen 0_o")
 
 	except:
-		traceback.print_exc(file=sys.stdout)
-		sys.exit(3)
+		if traceback.print_exc():
+			logging.error(traceback.print_exc())
+			sys.exit(3)
+		else:
+			sys.exit(0)
 
 
 if __name__ == "__main__":
