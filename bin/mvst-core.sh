@@ -474,6 +474,7 @@ Command:
 	tracer			Logs the players positions 
 	backup <reason>		Backups the server
 	overviewer		Renders the overviewer map
+	irc <start|stop|restart|status>	Controls the irc-bridge
 
 	log			Open the logfile with less
 	shell			Show the tail of the logfile and starts the minecraft shell
@@ -482,6 +483,12 @@ Command:
 	exit 1
 }
 
+
+
+
+#### LOAD MODULES ####
+
+source "${MAINDIR}/bin/mvst-irc.sh"
 
 
 
@@ -530,6 +537,10 @@ case "$1" in
 		;;
 	log)
 		do_log
+		;;
+	irc)
+		shift
+		do_irc $@
 		;;
 	*)
 		usage

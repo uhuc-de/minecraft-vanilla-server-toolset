@@ -44,6 +44,14 @@ LOGLEVEL=2
 MC_USER="minecraft"
 MC_GROUP="minecraft"
 
+#IRC Variables
+IRC_NICK="mvstMcBridge"
+IRC_REALNAME="MvstBot"
+IRC_HOST="irc.host.net"
+IRC_PORT="6667"
+IRC_CHANNEL="mychannel"
+
+
 # line which executes the overviewer
 OVERVIEWER_CMD="overviewer.py --quiet $MAINDIR/share/$_INSTANCE/servercopy/world $MAINDIR/share/$_INSTANCE/overviewer "
 
