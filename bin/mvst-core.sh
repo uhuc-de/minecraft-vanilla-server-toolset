@@ -161,11 +161,12 @@ say() {
 
 # Copys the map into the share folder
 do_servercopy() {
-	log "mvst" $_DEBUG "Perform servercopy"
 
 	if ! $(do_setlock "servercopy") ; then
-		exit 1
+		return 1
 	fi	
+
+	log "mvst" $_DEBUG "Perform servercopy"
 
 	# suspend saves
 	if is_running; then
@@ -197,17 +198,20 @@ do_whitelist() {
 		exit 1
 	fi
 
-	log "mvst" $_INFO "Add to whitelist: $1"
 	if [ ! is_running ]; then
 		echo "Couldn't connect to the server!"
 	else
+		log "mvst" $_INFO "Add to whitelist: $1"
 		user=`echo $1 | tr '[:upper:]' '[:lower:]'`
-		say "Whitelisting user ,,${user}''"
+		say "Whitelisting user »${user}«..."
+	
+		if do_backup "${user}"; then
+			do_control whitelist add ${user}
+			say "Added »${user}« to whitelist."
+		else
+			say "Whitelisting failed."
+		fi	
 
-		do_backup "${user}"
-
-		do_control whitelist add ${user}
-		say "Added ,,${user}'' to whitelist."
 	fi
 
 }
@@ -261,16 +265,18 @@ do_backup() {
 	time=`date '+%Y-%m-%d-%H%M%S'`
 	backupfile=${_DIR_BACKUP}/${time}_${reason}
 
-	log "backup" $_DEBUG "Perform backup ${reason}"
-	running=is_running
-	if $running; then
-		say "Performing world backup ,,${reason}''"
-	fi	
-	
-	if ! do_servercopy ; then
-		exit 1
+	if ! $(do_servercopy) ; then
+		echo "Could't backup the map, »servercopy.lock« is set."
+		log "backup" $_ERROR "Backup the map failed: »servercopy.lock« is set."
+		return 1
 	fi	
 
+	log "backup" $_DEBUG "Perform backup \"${reason}\""
+	running=is_running
+	if $running; then
+		say "Performing world backup »${reason}«"
+	fi	
+	
 	tar -c -jh --exclude-vcs -C "${_DIR_SHARE}/servercopy" -f "${backupfile}.tar.bz2" ${_MAPNAME} $BACKUP_FILELIST
 
 	# generate md5sum
