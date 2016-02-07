@@ -35,7 +35,7 @@ _DEBUG=1
 
 
 # Get name of the world
-grep -q "level-name" "${_DIR_SERVER}/server.properties" 2> /dev/null 
+grep -q "level-name" "${_DIR_SERVER}/server.properties" 2> /dev/null
 if [[ $? == 2 ]] # grep file not found
 then
 	_MAPNAME=world
@@ -97,7 +97,7 @@ do_stop () {
 		${_BIN_DAEMON} --pidfile $_WRAPPER_PID --stop --signal INT --retry 10
 		echo "Done." || echo "Fail."
 		rm -f $_WRAPPER_PID
-		rm -f $_WRAPPER_SOCKET 
+		rm -f $_WRAPPER_SOCKET
 	else
 		echo "server is not running."
 	fi
@@ -164,7 +164,7 @@ do_servercopy() {
 
 	if ! $(do_setlock "servercopy") ; then
 		return 1
-	fi	
+	fi
 
 	log "mvst" $_DEBUG "Perform servercopy"
 
@@ -173,7 +173,7 @@ do_servercopy() {
 		do_control "save-off"
 		do_control "save-all"
 		sleep 5
-	fi	
+	fi
 
 	# copy map
 	rsync -a "${_DIR_SERVER}/" "${_DIR_SHARE}/servercopy"
@@ -204,13 +204,13 @@ do_whitelist() {
 		log "mvst" $_INFO "Add to whitelist: $1"
 		user=`echo $1 | tr '[:upper:]' '[:lower:]'`
 		say "Whitelisting user »${user}«..."
-	
+
 		if do_backup "${user}"; then
 			do_control whitelist add ${user}
 			say "Added »${user}« to whitelist."
 		else
 			say "Whitelisting failed."
-		fi	
+		fi
 
 	fi
 
@@ -223,31 +223,31 @@ do_overviewer() {
 	log "overviewer" $_DEBUG "Perform overviewer"
 
 	if ! $(do_setlock "overviewer") ; then
-		log "overviewer" $_WARNING "Overviewer still running: abort rendering" 
+		log "overviewer" $_WARNING "Overviewer still running: abort rendering"
 		exit 1
-	fi		
+	fi
 
 	startt=$(date +%s)
 	if is_running; then
 		say "Start mapping..."
-	fi	
-	
+	fi
+
 	if ! do_servercopy ; then
 		exit 1
-	fi	
+	fi
 
 	nice -n 10 $OVERVIEWER_CMD 2>> $_LOGFILE >> /dev/null
 
 	endt=$(date +%s)
-	diff=$(( $(($endt - $startt)) / 60 ))	
+	diff=$(( $(($endt - $startt)) / 60 ))
 	if is_running; then
 		say "Finished mapping in $diff minutes"
 	fi
-	
-	log "overviewer" $_INFO "Finished mapping in $diff minutes"	
+
+	log "overviewer" $_INFO "Finished mapping in $diff minutes"
 
 	if ! $(do_releaselock "overviewer") ; then
-		log "overviewer" $_ERROR "Cant release lockfile!" 
+		log "overviewer" $_ERROR "Cant release lockfile!"
 		exit 1
 	fi
 
@@ -269,14 +269,14 @@ do_backup() {
 		echo "Could't backup the map, »servercopy.lock« is set."
 		log "backup" $_ERROR "Backup the map failed: »servercopy.lock« is set."
 		return 1
-	fi	
+	fi
 
 	log "backup" $_DEBUG "Perform backup \"${reason}\""
 	running=is_running
 	if $running; then
 		say "Performing world backup »${reason}«"
-	fi	
-	
+	fi
+
 	tar -c -jh --exclude-vcs -C "${_DIR_SHARE}/servercopy" -f "${backupfile}.tar.bz2" ${_MAPNAME} $BACKUP_FILELIST
 
 	# generate md5sum
@@ -298,8 +298,45 @@ do_backup() {
 
 	if $running; then
 		say "Backup complete"
-	fi	
+	fi
 	log "backup" $_INFO "Backup saved as $(basename $backupfile.tar.bz2)"
+}
+
+
+do_restore() {
+	if [[ -z "$1" ]]; then
+		echo "List the latest backups:"
+		ls -1 ${_DIR_BACKUP}/*.tar.bz2 | xargs -n1 basename | tail -n 11 | head -n 10
+		exit 0
+	fi
+
+	# validate backup file
+	i=$(cd ${_DIR_BACKUP}/; md5sum --quiet -c ${1}.md5)
+	ret=$?
+	if [[ $ret -eq 0 ]]; then
+		echo "md5 Check passed"
+	else
+		echo "Given file failed md5sum check!"
+		exit 1
+	fi	
+
+	log "restore" $_INFO "Perform restore of backup \"${1}\""
+	echo "Backup before restore"
+	do_backup "restore"
+
+	echo -n "Restore backup \"$1\"..."
+	tar --overwrite -xjf ${_DIR_BACKUP}/${1} -C ${_DIR_SERVER} 
+	ret=$?
+	if [[ $ret -eq 0 ]]; then
+		echo " successfull!"
+		log "restore" $_INFO "Restoring of backup \"${1}\" successfull"
+	else
+		echo " failed!"
+		log "restore" $_ERROR "Restoring of backup \"${1}\" failed!"
+		exit 1
+	fi	
+
+	
 }
 
 
@@ -477,8 +514,9 @@ Command:
 	control <cmd>		Sends a raw command to the server
 	update <version>	Perform backup and change to <version> (eg. 1.5.6)
 	whitelist <user> 	Perform backup and add <user> to whitelist
-	tracer			Logs the players positions 
+	tracer			Logs the players positions
 	backup <reason>		Backups the server
+	restore [backup]	Restore a specific backup
 	overviewer		Renders the overviewer map
 	irc <start|stop|restart|status>	Controls the irc-bridge
 
@@ -532,18 +570,23 @@ case "$1" in
 		shift
 		do_backup $@
 		;;
+	restore)
+		shift
+		do_restore $@
+		;;
 	tracer)
 		do_tracer
-		;;	
+		;;
 	whitelist)
 		do_whitelist $2
-		;;	
+		;;
 	shell)
 		do_shell
 		;;
 	log)
 		do_log
 		;;
+	# module: irc
 	irc)
 		shift
 		do_irc $@
@@ -553,7 +596,3 @@ case "$1" in
 		;;
 esac
 exit 0
-
-
-
-
