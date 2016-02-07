@@ -31,29 +31,29 @@ Install the dependencies of the toolset:
 * start-stop-daemon
 * tar
 * java
-* wget 
+* wget
 * cron
 * less
 * coreutils
-* bash 
+* bash
 * nbt (https://github.com/twoolie/NBT / https://pypi.python.org/pypi/NBT)
 * minecraft-overviewer (http://overviewer.org/)
 * rsync
 
-Installation: 
+Installation:
 ------------------
 
+* install all needed dependencies
 * add a user named "minecraft" to your system
 * login as user "minecraft"
-* install all needed dependencies
+* clone the git-repo into the directory you wanna have the mvst (eg. /home/minecraft)
 * chmod +x ~/bin/*
-* change the global variables in minecraftd.sh to your needs (if you need to):
-	* "\_MC\_GROUP" and "\_MC\_USER" 
 * change to the ~/bin directory
 * to install run: ~/bin/install.sh <version> [<instance>]
 	* eg: install.sh 1.7.10 default
-* change to the directory ~/server/default/
-* edit the server.properties if you need to
+* change the global variables in minecraftd.<instance>.sh to your needs (if you need to):
+	* "\_MC\_GROUP" and "\_MC\_USER"
+* change to the directory ~/server/default/ and edit the server.properties if you need to
 
 To test your settings, start the server, stop it with a command and check the logs:
 
@@ -67,17 +67,17 @@ To test your settings, start the server, stop it with a command and check the lo
 
 If you want to log the movements of every player every minute on your server you should add to your crontab:
 
-	* * * * * /path/to/minecraftd.default.sh tracer 
+	* * * * * /path/to/minecraftd.default.sh tracer
 
 The variable "\_TRACER\_DATABASE" is the place of the records. The default file is "tracer\_data.sqlite" inside the map directory. If you want to read out the position records, use tracer-client.py.
 
-### daily backup 
+### daily backup
 
 Write to the crontab:
 
 	0 0 * * * /path/to/minecraftd.default.sh backup daily
 
-### render the overviewer 
+### render the overviewer
 
 If you want to have an updated overviewer map every 3 hours, write to the crontab:
 
@@ -90,7 +90,7 @@ Usage:
 ------------------
 
 
-	minecraftd.sh {command}
+	Usage: ./minecraftd.default.sh {command}
 
 	Command:
 		start			Starts the server
@@ -100,23 +100,23 @@ Usage:
 
 		say <msg>		Say <msg> ingame
 		control <cmd>		Sends a raw command to the server
-		update <version>	Change to <version> (eg. 1.5.6)
-
+		update <version>	Perform backup and change to <version> (eg. 1.5.6)
 		whitelist <user> 	Perform backup and add <user> to whitelist
-		tracer			Logs the players positions 
+		tracer			Logs the players positions
 		backup <reason>		Backups the server
+		restore [backup]	Restore a specific backup
 		overviewer		Renders the overviewer map
+		irc <start|stop|restart|status>	Controls the irc-bridge
 
-		log				Shows the logfile with less
-		shell			Shows the tail of the logfile and starts the minecraft shell
-
+		log			Open the logfile with less
+		shell			Show the tail of the logfile and starts the minecraft shell
 
 
 Multiple instances:
 -------------------
 
-If you want to run multiple instances of minecraft on the same maschine you just need to run the installer with a different instance parameter:
-eg.: $ install.sh <version> otherworld
+If you want to run multiple instances of minecraft on the same machine you just need to run the installer with a different instance parameter:
+eg.: $ install.sh <version> instancename
 
 
 Troubleshooting:
