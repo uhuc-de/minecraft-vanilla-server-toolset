@@ -318,14 +318,14 @@ do_restore() {
 	else
 		echo "Given file failed md5sum check!"
 		exit 1
-	fi	
+	fi
 
 	log "restore" $_INFO "Perform restore of backup \"${1}\""
 	echo "Backup before restore"
 	do_backup "restore"
 
 	echo -n "Restore backup \"$1\"..."
-	tar --overwrite -xjf ${_DIR_BACKUP}/${1} -C ${_DIR_SERVER} 
+	tar --overwrite -xjf ${_DIR_BACKUP}/${1} -C ${_DIR_SERVER}
 	ret=$?
 	if [[ $ret -eq 0 ]]; then
 		echo " successfull!"
@@ -334,9 +334,9 @@ do_restore() {
 		echo " failed!"
 		log "restore" $_ERROR "Restoring of backup \"${1}\" failed!"
 		exit 1
-	fi	
+	fi
 
-	
+
 }
 
 
