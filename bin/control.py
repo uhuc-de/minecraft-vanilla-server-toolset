@@ -65,8 +65,9 @@ client.settimeout(2)
 try :
 	client.connect(socketfile)
 	connected = True
-except :
-	sys.stdout.write("can't connect to socket: %s\n" % socketfile)
+except:
+	if not check:
+		sys.stdout.write("can't connect to socket: %s\n" % socketfile)
 	sys.exit(2)
 
 if check:
