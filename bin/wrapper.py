@@ -41,8 +41,13 @@ Loglevels:
 	WARNING		3
 	INFO		2
 	DEBUG		1
+
+Returncodes:
+	0 	everything is alright
+	1 	wrong parameter
+	2 	unable to access jar file
 """)	
-	sys.exit(2)
+	sys.exit(1)
 
 
 """
@@ -89,6 +94,16 @@ def main(argv):
 		logging.basicConfig(level=loglevel,format=formatter)
 	else:
 		logging.basicConfig(filename=logfile,level=loglevel,format=formatter)
+
+	# check if *.jar exists
+	for i in mccommand.split(" "):
+		print(i)
+		if ".jar" in i:
+			print("is jar")
+			if not os.path.isfile(i):
+				print("exit")
+				exit(2)
+
 
 	wrapper = Wrapper(mccommand, socket, linebreak)
 	wrapper.start()
