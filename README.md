@@ -1,14 +1,14 @@
 Minecraft Vanilla Server Toolset
 ================================
 
-The Minecraft Vanilla Server Toolset is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" window, where they can click through. If you are familiar with Linux and the Shell you should have no problems to run the skripts and maybe edit them as you like.
+The Minecraft Vanilla Server Toolset is a compilation of different skripts. This bundle isn't a "all-round carefree package" for wannabe serveradministrators who want an "easy to use" window, where they can click through. If you are familiar with Linux, Python and the Shell you should have no problems to run the skripts and maybe edit them as you like.
 
 
 Features
 ---------------
 
 * provides 100% vanilla minecraft
-* start/stop the minecraft server like a daemon
+* using start-stop-daemon to start/stop the minecraft server like a daemon
 * creates a unix socket to talk to the server
 * backup the map daily
 * update minecraft easily
@@ -28,6 +28,7 @@ Dependencies:
 Install the dependencies of the toolset:
 
 * python 2.7
+* python 3
 * start-stop-daemon
 * tar
 * java
