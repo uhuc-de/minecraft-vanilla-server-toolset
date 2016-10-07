@@ -9,23 +9,26 @@ import sqlite3
 
 import getopt
 import traceback
-
+from os.path import isfile, getsize
 
 
 
 def usage():
-	print("""tracer-client.py [optional args] x z sqlfile [sqlfile ...]
+	print("""tracer-client.py [optional args] sqlfile [sqlfile ...]
 
-	x			x-coordinate (integer)
-	z 			z-coordinate (integer)
 	sqlfile		SQLite File from tracer.py
 
 optional arguments:
 
-	-c usercache.json	Convert UUID to username with the usercache.json
+	-x			x-coordinate (integer)
+	-z			z-coordinate (integer)
 	-y y				y-coordinate (integer)
-	-d d				Dimension (-1, 0, 1)
+	-d d				Dimension as number (-1 = nether, 0 = overworld, 1 = end)
 	-r r				Search radius around x, z and y
+
+	-n username		Query only this username (needs -c)
+	-c usercache.json	Convert UUID to username with the usercache.json
+
 	--since	YYYY-MM-DD	Showing entries newer or of the specified date
 	--until YYYY-MM-DD	Stop showing entries newer or of the specified date
 	-v --verbose		Shows the SQL Query
@@ -40,19 +43,22 @@ def main(argv):
 	x = None
 	y = None
 	z = None
-	d = 0
+	d = None
 	r = 240
 	until = None
 	since = None
 
 	usercache = None
+	userfilter = ""
 
 	verbose = False
 
+
 	try:
 		# Option with ":" need an Argument
-		opts, args = getopt.getopt(argv, "hvz:d:r:y:c:", ["help", "verbose", "since=", "until="] )
-	except getopt.GetoptError:
+		opts, args = getopt.getopt(argv, "hvz:d:r:y:x:z:c:n:", ["help", "verbose", "since=", "until="] )
+	except getopt.GetoptError as err:
+		print("GetoptError: %s" % err)
 		usage()
 	
 	# left over parameter length	
@@ -68,15 +74,22 @@ def main(argv):
 			p=p+1
 			
 		elif opt in "-r": 
-			r = int(arg)
+			r = arg
 			p=p+2
 			
 		elif opt in "-y": 
-			y = int(arg)
+			y = arg
+			p=p+2
+		elif opt in "-x": 
+			x = arg
+			p=p+2
+		elif opt in "-z": 
+			z = arg
 			p=p+2
 			
 		elif opt in "-d":
-			d = int(arg)
+			d = arg
+			p=p+2
 
 		elif opt in "-c":
 			p=p+2
@@ -86,41 +99,78 @@ def main(argv):
 				print("ERROR: can't read usercache.json!")
 				usage()
 
+		elif opt in "-n":
+			userfilter = arg
+			p=p+2
+
 		elif opt in "--since":
 			since = arg
-			p=p+1
+			p=p+2
 
 		elif opt in "--until":
 			until = arg
-			p=p+1
+			p=p+2
 
 	# remove all
 	argv = argv[p:]
 
+	filelist = argv
+
+
+
+	## Check the variables and create the SQL query
+
+	# Check the variable x
+	if x == None:
+		x = 0
+	else:
+		try:
+			x = int(x)
+		except ValueError:
+			print("ERROR: x must be an integer!")
+			usage()
+
+	# Check the variable z
+	if z == None:
+		z = 0
+	else:
+		try:
+			z = int(z)
+		except ValueError:
+			print("ERROR: z must be an integer!")
+			usage()
+
+	# Check the variable r
 	try:
-		x = int(argv[0])
-		z = int(argv[1])
-	except:
-		print("ERROR: x and z need to be Integer!")
-		usage()
-	
-	filelist = argv[2:]
+		r = int(r)
+	except ValueError:
+		print("ERROR: r must be an integer!")
 
-	if d not in (-1,0,1):
-		print("ERROR: d can only be -1, 0 or 1")
-		usage()
 
-	# Create SQL Query
 	sql = """SELECT time, uuid, dimension, pos_x, pos_y, pos_z 
 FROM positions 
-WHERE dimension = %s
-AND pos_z >= %s AND pos_z <= %s 
+WHERE pos_z >= %s AND pos_z <= %s 
 AND pos_x >= %s AND pos_x <= %s
-""" % (d, z-r, z+r, x-r, x+r)
-	
-	if y:
-		sql = sql + " AND pos_y >= %s AND pos_y <= %s" % (y-r, y+r)
+""" % (z-r, z+r, x-r, x+r)
 
+	# Check the variable d
+	if d:
+		if d not in ("-1","0","1"):
+			print("ERROR: d can only be -1, 0 or 1")
+			usage()
+		else:
+			sql = sql + " AND dimension = %s" % (d)
+
+	# Check the variable y
+	if y:
+		try:
+			y = int(y)
+			sql = sql + " AND pos_y >= %s AND pos_y <= %s" % (y-r, y+r)
+		except ValueError:
+			print("ERROR: z must be an integer!")
+			usage()
+
+	# Check the variable since
 	if since:
 		try:
 			since = datetime.datetime.strptime(since,"%Y-%m-%d").strftime("%s")
@@ -129,6 +179,7 @@ AND pos_x >= %s AND pos_x <= %s
 			print('ERROR: since Argument need to have the Format "YYYY-MM-DD"!')
 			usage()
 
+	# Check the variable until
 	if until:
 		try:
 			until = datetime.datetime.strptime(until,"%Y-%m-%d").strftime("%s")
@@ -141,9 +192,15 @@ AND pos_x >= %s AND pos_x <= %s
 		print("=== SQL-Query: ===")
 		print(sql)	
 
+
+
 	# datensätze holen
 	ergebnis = []
 	for db in filelist:
+		if not isSQLite3(db):
+			print ("'%s' is not a SQLite3 database file" % db)
+			sys.exit(2)
+
 		query = getRecordsFromDb(db, sql)
 		
 		for satz in query:
@@ -155,8 +212,9 @@ AND pos_x >= %s AND pos_x <= %s
 		ergebnis= []
 		for i in tmp:
 			username = usercache.get(i[1], i[1])
-			j = (i[0], username, i[2], i[3], i[4], i[5])
-			ergebnis.append(j)
+			if (username == "") or (userfilter in username):
+				j = (i[0], username, i[2], i[3], i[4], i[5])
+				ergebnis.append(j)
 
 	if verbose:
 		print("=== Result: ===")
@@ -217,6 +275,24 @@ def getUserDictFromUserCache(usercache):
 	f.close()
 	return cache
 
+"""
+Check if the sqlite3file is valid
+credits to: http://stackoverflow.com/questions/12932607/
+"""
+def isSQLite3(filename):
+	if not isfile(filename):
+		return False
+	if getsize(filename) < 100: # SQLite database file header is 100 bytes
+		return False
+	else:
+		fd = open(filename, 'rb')
+		Header = fd.read(100)
+		fd.close()
+
+		if Header[0:16] == 'SQLite format 3\000':
+			return True
+		else:
+			return False
 
 
 
