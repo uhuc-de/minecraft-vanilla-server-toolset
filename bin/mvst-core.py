@@ -432,14 +432,8 @@ class Mvst:
 		return self.get("core", "loglevel")
 
 	def getHomeDir(self):
-		""" Return the current homedir from the config """
-		s = self.get("core","dir")
-
-		# TODO get dir with __FILE__
-		if s[-1] == "/":
-			return s
-		else:
-			return s+"/"
+		""" Return the current homedir by the absolute path of __file__ and removes the 'bin' dir """
+		return os.path.dirname(os.path.abspath(__file__))[:-3]
 
 	def getTmpDir(self):
 		""" Return the current tmp dir """
