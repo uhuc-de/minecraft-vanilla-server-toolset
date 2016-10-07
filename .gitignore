@@ -5,4 +5,8 @@ share/
 server/
 tmp/
 
+bin/__*
+
 bin/minecraftd.default.sh
+bin/mvst-dev.sh
+bin/mvst-dev.ini
