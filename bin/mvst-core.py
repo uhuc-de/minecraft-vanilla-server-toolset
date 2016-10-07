@@ -7,6 +7,7 @@ import time # needed for sleep() and duration
 import subprocess # needed by qx()
 import configparser # needed by loadConfig
 import logging	# used for logging
+import datetime # needed for date calculations
 import getopt
 
 import re # regex
@@ -125,7 +126,12 @@ class Mvst:
 		elif x == "backup":
 			self.archive.backup(" ".join(self.__argv[1:]))
 
-			
+		elif x == "tracer":
+			self.tracerLog()
+
+		elif x == "tracer-client":
+			self.tracerClient(" ".join(self.__argv[1:]))
+
 		else:
 			print("unknown command »%s«" % x)
 			self.usage()
@@ -136,14 +142,31 @@ class Mvst:
 
 	def tracerLog(self):
 		""" Prints the current positions from the playerfiles into the tracerdatabase """
-		playerdataDir = ""
-		tracerdb = self.get("tracer", "tracerdb")
-		"${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
+		playerdataDir = "%s%s/playerdata/" % (self.getServerDir(), self.getMapName())
+		tracerdb = self.getTracerDb()
 
 		cmd = "%s %stracer.py \"%s\" \"%s\" " % (self.getPython2(), self.getBinDir(), playerdataDir, tracerdb)
 		
 		if self.qx(cmd):
 			self.log.critical("Can't execute the tracer!")
+
+
+	def tracerClient(self, args):
+		""" Starts the Tracerclient """
+		if len(args) < 1:
+			enddate = datetime.date.today() - datetime.timedelta(days=7)
+			args = "--since=%s" % enddate
+		
+		tracerdb = self.getTracerDb()
+		usercache = "%susercache.json" % self.getServerDir()
+		cmd = "%s %stracer-client.py -c %s %s %s" % (self.getPython2(), self.getBinDir(), usercache, args, tracerdb)
+
+		print(cmd)
+		
+		#if self.qx(cmd, returnoutput=True):
+		#	self.log.critical("Can't execute the tracer-client!")
+		
+
 
 
 	### Update ###
@@ -459,6 +482,15 @@ class Mvst:
 		""" returns the bool of the autorun option """
 		return self.__config.getboolean("irc", "autorun")
 
+	def getMapName(self):
+		""" Parses the mapname out of the current server.properties """
+		cmd = "grep \"level-name\" \"%sserver.properties\" | cut -d \"=\" -f 2" % self.getServerDir()
+		return self.qx(cmd, returnoutput=True)
+
+	def getTracerDb(self):
+		""" Returns the path to the database of the tracer """
+		return "%stracer_data.sqlite" % self.getServerDir()
+
 
 	### Common ###
 
@@ -469,7 +501,7 @@ class Mvst:
 
 
 
-	def qx(self, cmd, interactive=False):
+	def qx(self, cmd, returnoutput=False):
 		"""
 		Executes a command in the shell and returns the returncode or the output
 
@@ -480,37 +512,24 @@ class Mvst:
 		TODO: http://xahlee.info/perl-python/system_calls.html
 		"""
 
-		if interactive: # XXX: maybe delete it again
-			print("TODO: interactive=true")
-			sout=subprocess.PIPE
-			process = subprocess.Popen(cmd,stdout=sout, cwd=os.getcwd(), shell=True)
-			while True:
-				try:
-					output = process.stdout.readline().decode("utf-8")
-					output = output.strip()
-					if output == "": 
-						print("process line is empty")
-						break
-					else:
-						print("-- %s" % output)
-				except IOError:
-					print("ioerror")
-					break
-			return process.returncode
-			
-		else:
-			try:
-				output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
-				returncode = 0
-			except subprocess.CalledProcessError as e: # Do if returncode != 0
-				output = e.output.splitlines()
-				self.log.debug("qx returns %s - %s" %(e.returncode, cmd))
-				returncode = "%s" % e.returncode
-				if returncode == None:
-					returncode = "typeOfNone"
-			for i in output:
-				print(i.decode('unicode_escape'))
-			return returncode
+		try:
+			output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
+			returncode = 0
+		except subprocess.CalledProcessError as e: # Do if returncode != 0
+			output = e.output.splitlines()
+			self.log.debug("qx returns %s - %s" %(e.returncode, cmd))
+			returncode = "%s" % e.returncode
+			if returncode == None:
+				returncode = "typeOfNone"
+
+		out = ""
+		for i in output:
+			out = out+(i.decode('unicode_escape'))
+		if returnoutput:
+			return out
+		
+		return returncode
+
 
 	def usage(self):
 		"""
@@ -528,13 +547,14 @@ Command:
 
 	say <msg>		Say <msg> ingame
 	control <cmd>		Sends a raw command to the server
-	-update <version>	Perform backup and change to <version> (eg. 1.5.6)
-	-whitelist <user> 	Perform backup and add <user> to whitelist
-	-tracer			Logs the players positions
-	-backup <reason>		Backups the server
+	update <version>	Perform backup and change to <version> (eg. 1.5.6)
+	whitelist <user> 	Perform backup and add <user> to whitelist
+	tracer			Logs the players positions
+	tracer-client	View and filter the tracer positions
+	backup <reason>		Backups the server
 	-restore [backup]	Restore a specific backup
-	-overviewer		Renders the overviewer map
-	-irc <start|stop|restart|status>	Controls the irc-bridge
+	overviewer		Renders the overviewer map
+	irc <start|stop|restart|status>	Controls the irc-bridge
 
 	-log			Open the logfile with less
 	-shell			Show the tail of the logfile and starts the minecraft shell
@@ -839,7 +859,7 @@ class WrapperCtl:
 		"""
 		Starts a shell for the user
 		"""
-		self.mvst.qx("tail -n 25 %s" % self.mvst.getLogfile(), interactive=True)
+		#self.mvst.qx("tail -n 25 %s" % self.mvst.getLogfile(), interactive=True)
 		print("")
 		shellcmd = "%s %scontrol.py -s %s" % (self.mvst.getPython2(), self.mvst.getBinDir(), self.mvst.getSocket())
 		self.mvst.qx(shellcmd)
@@ -1142,137 +1162,5 @@ if __name__ == "__main__":
 
 
 
-
-#
-# _DIR_SERVER="${MAINDIR}/server/${_INSTANCE}"
-# _DIR_BACKUP="${MAINDIR}/backups/${_INSTANCE}"
-# _DIR_MVSTBIN="${MAINDIR}/bin"
-# _DIR_TMP="${MAINDIR}/tmp"
-# _DIR_SHARE="${MAINDIR}/share/${_INSTANCE}"
-#
-#
-# _BIN_PYTHON2=`which python2`
-# _BIN_DAEMON=`which start-stop-daemon`
-# _BIN_OVERVIEWER=`which overviewer.py`
-# _BIN_WGET=`which wget`
-#
-# # Get name of the world
-# grep -q "level-name" "${_DIR_SERVER}/server.properties" 2> /dev/null
-# if [[ $? == 2 ]] # grep file not found
-# then
-# 	_MAPNAME=world
-# else
-# 	_MAPNAME=$(grep "level-name" "${_DIR_SERVER}/server.properties" | cut -d "=" -f 2)
-# fi
-#
-#
-# _WRAPPER_SOCKET="${_DIR_TMP}/wrapper_${_INSTANCE}.socket"
-# _WRAPPER_PID="${_DIR_TMP}/wrapper_${_INSTANCE}.pid"
-# _WRAPPER_CMD="${_DIR_MVSTBIN}/wrapper.py -s $_WRAPPER_SOCKET -v ${_LOGLEVEL} -l $_LOGFILE --- java -jar minecraft_server.jar nogui"
-#
-# _TRACER_DATABASE="${_DIR_SERVER}/${_MAPNAME}/tracer_data.sqlite"
-#
-#
-#
-
-
-#
-#
-# usage() {
-# 	echo """
-# Usage: $0 {command}
-#
-# Command:
-# 	start			Starts the server
-# 	stop			Stops the server
-# 	status			Shows the status of the server
-# 	restart			Restarts the Server
-#
-# 	say <msg>		Say <msg> ingame
-# 	control <cmd>		Sends a raw command to the server
-# 	update <version>	Perform backup and change to <version> (eg. 1.5.6)
-# 	whitelist <user> 	Perform backup and add <user> to whitelist
-# 	tracer			Logs the players positions
-# 	backup <reason>		Backups the server
-# 	restore [backup]	Restore a specific backup
-# 	overviewer		Renders the overviewer map
-# 	irc <start|stop|restart|status>	Controls the irc-bridge
-#
-# 	log			Open the logfile with less
-# 	shell			Show the tail of the logfile and starts the minecraft shell
-#
-# """
-# 	exit 1
-# }
-#
-#
-#
-#
-# #### LOAD MODULES ####
-#
-# source "${MAINDIR}/bin/mvst-irc.sh"
-#
-#
-#
-# ## MAIN
-#
-# case "$1" in
-#
-# 	start)
-# 		do_start
-# 		;;
-# 	stop)
-# 		do_stop
-# 		;;
-# 	restart)
-# 		do_restart
-# 		;;
-#  	status)
-# 		do_status
-# 		;;
-# 	update)
-# 		do_update $2
-# 		;;
-# 	overviewer)
-# 		do_overviewer
-# 		;;
-# 	control)
-# 		shift
-# 		do_control $@
-# 		;;
-# 	say)
-# 		shift
-# 		say $@
-# 		;;
-# 	backup)
-# 		shift
-# 		do_backup $@
-# 		;;
-# 	restore)
-# 		shift
-# 		do_restore $@
-# 		;;
-# 	tracer)
-# 		do_tracer
-# 		;;
-# 	whitelist)
-# 		do_whitelist $2
-# 		;;
-# 	shell)
-# 		do_shell
-# 		;;
-# 	log)
-# 		do_log
-# 		;;
-# 	# module: irc
-# 	irc)
-# 		shift
-# 		do_irc $@
-# 		;;
-# 	*)
-# 		usage
-# 		;;
-# esac
-# exit 0
 
 
