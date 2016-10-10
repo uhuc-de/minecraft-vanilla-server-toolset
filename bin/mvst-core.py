@@ -80,12 +80,14 @@ class Mvst:
 		"""
 		starts the mvst and selects the command
 		"""
+		if not args:
+			args = self.__argv
+
 
 		try:
-			if not args: 
-				x = self.__argv[0]
-			else:
-				x = args
+			x = args[0]
+			args = args[1:]
+			args_str = " ".join(args)
 				
 			if x == "help":
 				self.usage()
@@ -95,41 +97,41 @@ class Mvst:
 			elif x == "stop":
 				self.wrapper.wrapperStop(args)
 			elif x == "status":
-				self.wrapper.wrapperStatus()
+				return self.wrapper.wrapperStatus()
 			elif x == "restart":
 				self.wrapper.wrapperRestart(args)
 			elif x == "control":
 				self.wrapper.control(args)
 			elif x == "say":
 				w = WrapperCtl(self)
-				w.say(args)
+				w.say(args_str)
 			elif x == "shell":
 				self.wrapper.shell(args)
 				
 			elif x == "irc":
-				self.irc.do(self.__argv[1:])
+				return self.irc.do(args)
 			elif x == "remote":
-				remote = Remote(self, self.__argv[1])
+				remote = Remote(self, args[0])
 				remote.start()
 
 			elif x == "overviewer":
 				self.overviewer()
 			elif x == "whitelist":
-				self.whitelist(" ".join(self.__argv[1:]))
+				self.whitelist(args_str)
 			elif x == "update":
-				self.whitelist(" ".join(self.__argv[1:]))
+				self.whitelist(args_str)
 				
 			elif x == "backup":
-				self.archive.backup(" ".join(self.__argv[1:]))
+				self.archive.backup(args_str)
 
 			elif x == "tracer":
 				self.tracerLog()
 				
 			elif x == "log":
-				self.logViewer(" ".join(self.__argv[1:]))
+				self.logViewer(args)
 
 			elif x == "tracer-client":
-				self.tracerClient(" ".join(self.__argv[1:]))
+				self.tracerClient(args_str)
 
 			else:
 				print("unknown command »%s«" % x)
@@ -530,8 +532,6 @@ class Mvst:
 		"""
 
 		try:
-			print("cmd:::")
-			print(cmd)
 			output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
 			returncode = 0
 		except subprocess.CalledProcessError as e: # Do if returncode != 0
@@ -544,7 +544,7 @@ class Mvst:
 		out = ""
 		for i in output:
 			out = out+(i.decode('unicode_escape'))
-			if out[-1] != "\n":
+			if len(output) > 1 and out[-1] != "\n":
 				out = out+"\n"
 		if returnoutput:
 			return out
@@ -665,7 +665,6 @@ class Archive:
 		if os.path.exists("%s%s" %(self.mvst.getBackupDir(), latest)):
 			os.remove("%s%s" %(self.mvst.getBackupDir(), latest))
 		cmd = "cd %s && ln %s%s %s" % (self.mvst.getBackupDir(), filename, extension, latest)
-		print (cmd)
 		if self.mvst.qx(cmd):
 			self.log.error("Failure during the creation of the %s link!" % latest)
 
@@ -831,10 +830,10 @@ class WrapperCtl:
 		self.mvst.echo('Checking minecraft-server status...')
 		if self.isWrapperRunning():
 			print("Running.")
-			exit(0)
+			return 0
 		else:
 			print("Stopped.")
-			exit(1)
+			return 1
 
 
 	def isWrapperRunning(self):
@@ -919,18 +918,21 @@ class Remote:
 		"""
 		Starts a shell for a user with special rights
 		"""
+		remoteip = self.getSshIp()
+		
 		# check if user exists
 		if not ("remote-%s" % self.user) in self.mvst.getConfigArray():
 			print("You (%s) are not allowed to enter the remote shell!" % self.user)
-			self.log.warning("User »%s« tried to login, but doesnt exist in the config ini!" % self.user)
+			self.log.warning("User »%s« (%s) tried to login, but doesnt exist in the config ini!" % (self.user, remoteip))
 			exit(1)
 		# load configs for user
 		self.conf = self.mvst.getConfigArray()["remote-%s" % self.user]
 
 		# start the shell for the user
 		print("You are now remote connected to mvst instance »%s«" % self.mvst.getInstance())
-		self.log.info("Connected: %s" % self.user)
+		self.log.info("Connected: %s (%s)" % (self.user, remoteip))
 		self.menu()
+
 
 	def menu(self):
 		run=1
@@ -948,20 +950,24 @@ class Remote:
 				continue
 				
 			try:
-				command = i.split(' ', 1)[0]
+				command = i.split(' ')[0]
+				
 				if self.isCommandAllowed(command):
-					self.executeCommand(i)
+					self.executeCommand( i.split(' ') )
 				else:
 					print("You are not allowed to execute this command! Abusive behaviour will be reported.")
 					self.log.warning("ExecutionWarning (%s): %s" % (self.user, i) )
 			except configparser.NoOptionError:
 				print("This is not a valid command or you are not allowed to execute it.")
 
+		print("Quitting remote connection")
+
 
 	def executeCommand(self, command):
 		""" Executes the given command inside the mvst """
-		self.log.info("Execute (%s): %s" % (self.user, command) )
+		self.log.info("Execute (%s): %s" % (self.user, " ".join(command)) )
 		self.mvst.start(command)
+
 
 	def isCommandAllowed(self, command):
 		""" check if the given command can be executed by this user """
@@ -981,6 +987,16 @@ class Remote:
 			if ( self.isCommandAllowed(i) ):
 				allowed.append(i)
 		return allowed
+
+
+	def getSshIp(self):
+		""" Return the IP of the SSH User (if available) """
+		cmd = "echo ${SSH_CONNECTION%% *}"
+		ip = self.mvst.qx(cmd, returnoutput=True)
+		if ip == "":
+			return "local"
+		return ip
+
 
 	def printHelp(self):
 		"""
@@ -1073,7 +1089,7 @@ class Irc:
 		elif x == "stop":
 			self.ircStop( " ".join(command[1:]) )
 		elif x == "status":
-			self.ircStatus()
+			return self.ircStatus()
 		elif x == "restart":
 			self.ircRestart( " ".join(command[1:]) )
 			
@@ -1157,10 +1173,10 @@ class Irc:
 		self.mvst.echo('Checking irc-bridge status...')
 		if self.isIrcRunning():
 			print("Running.")
-			exit(0)
+			return 0
 		else:
 			print("Stopped.")
-			exit(1)
+			return 1
 
 	def isIrcRunning(self):
 		"""
@@ -1188,7 +1204,7 @@ class Irc:
 
 if __name__ == "__main__":
 	m = Mvst(sys.argv[1:])
-	m.start()
+	exit(m.start())
 
 
 
