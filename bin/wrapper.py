@@ -97,11 +97,9 @@ def main(argv):
 
 	# check if *.jar exists
 	for i in mccommand.split(" "):
-		print(i)
 		if ".jar" in i:
-			print("is jar")
 			if not os.path.isfile(i):
-				print("exit")
+				print("ERROR: no valid JAR-File given!")
 				exit(2)
 
 
