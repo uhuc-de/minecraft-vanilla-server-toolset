@@ -95,11 +95,11 @@ class Mvst:
 			elif x == "start":
 				self.wrapper.wrapperStart()
 			elif x == "stop":
-				self.wrapper.wrapperStop(args)
+				self.wrapper.wrapperStop(args_str)
 			elif x == "status":
 				return self.wrapper.wrapperStatus()
 			elif x == "restart":
-				self.wrapper.wrapperRestart(args)
+				self.wrapper.wrapperRestart(args_str)
 			elif x == "control":
 				self.wrapper.control(args)
 			elif x == "say":
