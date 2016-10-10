@@ -12,6 +12,7 @@ import getopt
 
 import re # regex
 
+import pprint # needed sometimes during debugging 
 
 
 class Mvst:
@@ -83,59 +84,72 @@ class Mvst:
 		starts the mvst and selects the command
 		"""
 
-		if not args: 
-			x = self.__argv[0]
-		else:
-			x = args
-			
-		if x == "help":
-			self.releaseLock("blubb")
-			#self.usage()
+		try:
+			if not args: 
+				x = self.__argv[0]
+			else:
+				x = args
+				
+			if x == "help":
+				self.releaseLock("blubb")
+				#self.usage()
 
-		elif x == "start":
-			self.wrapper.wrapperStart()
-		elif x == "stop":
-			self.wrapper.wrapperStop(args)
-		elif x == "status":
-			self.wrapper.wrapperStatus()
-		elif x == "restart":
-			self.wrapper.wrapperRestart(args)
-		elif x == "control":
-			self.wrapper.control(args)
-		elif x == "say":
-			w = WrapperCtl(self)
-			w.say(args)
-		elif x == "shell":
-			print("TODO")
-			#self.wrapper.shell(args)
-			
-		elif x == "irc":
-			self.irc.do(self.__argv[1:])
+			elif x == "start":
+				self.wrapper.wrapperStart()
+			elif x == "stop":
+				self.wrapper.wrapperStop(args)
+			elif x == "status":
+				self.wrapper.wrapperStatus()
+			elif x == "restart":
+				self.wrapper.wrapperRestart(args)
+			elif x == "control":
+				self.wrapper.control(args)
+			elif x == "say":
+				w = WrapperCtl(self)
+				w.say(args)
+			elif x == "shell":
+				self.wrapper.shell(args)
+				
+			elif x == "irc":
+				self.irc.do(self.__argv[1:])
+			elif x == "remote":
+				remote = Remote(self)
+				remote.start()
+
+			elif x == "overviewer":
+				self.overviewer()
+			elif x == "whitelist":
+				self.whitelist(" ".join(self.__argv[1:]))
+			elif x == "update":
+				self.whitelist(" ".join(self.__argv[1:]))
+				
+			elif x == "backup":
+				self.archive.backup(" ".join(self.__argv[1:]))
+
+			elif x == "tracer":
+				self.tracerLog()
+				
+			elif x == "log":
+				self.logViewer(" ".join(self.__argv[1:]))
+
+			elif x == "tracer-client":
+				self.tracerClient(" ".join(self.__argv[1:]))
+
+			else:
+				print("unknown command »%s«" % x)
+				self.usage()
+				
+		except KeyboardInterrupt:
 			pass
-		elif x == "remote":
-			remote = Remote(self)
-			remote.start()
 
-		elif x == "overviewer":
-			self.overviewer()
-		elif x == "whitelist":
-			self.whitelist(" ".join(self.__argv[1:]))
-		elif x == "update":
-			self.whitelist(" ".join(self.__argv[1:]))
-			
-		elif x == "backup":
-			self.archive.backup(" ".join(self.__argv[1:]))
 
-		elif x == "tracer":
-			self.tracerLog()
+	### Log ###
 
-		elif x == "tracer-client":
-			self.tracerClient(" ".join(self.__argv[1:]))
-
-		else:
-			print("unknown command »%s«" % x)
-			self.usage()
-
+	def logViewer(self, args):
+		""" Views the current logfile with less """
+		cmd = "less +G %s" % self.getLogfile()
+		if self.startShell(cmd):
+			self.log.critical("Can't execute the log view!")
 
 
 	### Tracer ###
@@ -155,17 +169,13 @@ class Mvst:
 		""" Starts the Tracerclient """
 		if len(args) < 1:
 			enddate = datetime.date.today() - datetime.timedelta(days=7)
-			args = "--since=%s" % enddate
+			args = "--since %s" % enddate
 		
 		tracerdb = self.getTracerDb()
 		usercache = "%susercache.json" % self.getServerDir()
-		cmd = "%s %stracer-client.py -c %s %s %s" % (self.getPython2(), self.getBinDir(), usercache, args, tracerdb)
+		cmd = "%s %stracer-client.py -c \"%s\" %s \"%s\"" % (self.getPython2(), self.getBinDir(), usercache, args, tracerdb)
 
-		print(cmd)
-		
-		#if self.qx(cmd, returnoutput=True):
-		#	self.log.critical("Can't execute the tracer-client!")
-		
+		self.startShell(cmd)
 
 
 
@@ -500,6 +510,16 @@ class Mvst:
 		#print('.',end="",flush=True)
 
 
+	def startShell(self, cmd):
+		"""
+		Starts the command in the shell without returning or printing something
+		https://docs.python.org/3/library/subprocess.html#replacing-os-system
+		"""
+		try:
+			subprocess.call(cmd, shell=True)
+		except OSError as e:
+			self.log.error("Execution failed:", e, file=sys.stderr)
+
 
 	def qx(self, cmd, returnoutput=False):
 		"""
@@ -513,6 +533,8 @@ class Mvst:
 		"""
 
 		try:
+			print("cmd:::")
+			print(cmd)
 			output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
 			returncode = 0
 		except subprocess.CalledProcessError as e: # Do if returncode != 0
@@ -525,6 +547,8 @@ class Mvst:
 		out = ""
 		for i in output:
 			out = out+(i.decode('unicode_escape'))
+			if out[-1] != "\n":
+				out = out+"\n"
 		if returnoutput:
 			return out
 		
@@ -552,12 +576,12 @@ Command:
 	tracer			Logs the players positions
 	tracer-client	View and filter the tracer positions
 	backup <reason>		Backups the server
-	-restore [backup]	Restore a specific backup
+	(restore [backup]	Restore a specific backup)
 	overviewer		Renders the overviewer map
 	irc <start|stop|restart|status>	Controls the irc-bridge
 
-	-log			Open the logfile with less
-	-shell			Show the tail of the logfile and starts the minecraft shell
+	log			Open the logfile with less
+	shell			Show the tail of the logfile and starts the minecraft shell
 		""" % os.path.basename(__file__)
 		helpmsg="%%HELPTEXT%%"
 		print(helpmsg)
@@ -790,6 +814,8 @@ class WrapperCtl:
 		Restarts the wrapper
 		"""
 		print("Restarting...")
+		if reason == "":
+			reason = "restarting"
 		r = self.wrapperStop(reason)
 		if r == 0:
 			time.sleep(3)
@@ -859,10 +885,10 @@ class WrapperCtl:
 		"""
 		Starts a shell for the user
 		"""
-		#self.mvst.qx("tail -n 25 %s" % self.mvst.getLogfile(), interactive=True)
-		print("")
+		cmd = "tail -n 25 %s" % self.mvst.getLogfile()
+		print( self.mvst.qx(cmd, returnoutput=True) )
 		shellcmd = "%s %scontrol.py -s %s" % (self.mvst.getPython2(), self.mvst.getBinDir(), self.mvst.getSocket())
-		self.mvst.qx(shellcmd)
+		self.mvst.startShell(shellcmd)
 
 
 
@@ -1109,58 +1135,6 @@ class Irc:
 if __name__ == "__main__":
 	m = Mvst(sys.argv[1:])
 	m.start()
-
-
-
-
-########################################################
-
-
-
-
-
-
-
-
-
-
-
-# https://wiki.python.org/moin/ConfigParserExamples
-# modularisation via "import mvst-irc"
-# cat: http://stackoverflow.com/questions/11532980/reproduce-the-unix-cat-command-in-python
-# http://stackoverflow.com/questions/5631624/how-to-get-exit-code-when-using-python-subprocess-communicate-method
-
-# Zu implementierenden funktionen:
-# - hauptfunktion: parameter aufbau bestimmen
-# - hauptfunktion: switch schreiben
-# Schritt 1
-# - start
-# - stop
-# - status
-# Schritt 2
-# - Config-Loader
-# - mc server reload argument
-# Schritt 3
-# - Shell
-# - Remote-shell
-# - Berechtigungen für Shell
-#
-# - grep (greps the log)
-# - log <loglevel> (filtert nach loglevel)
-#
-#
-# Backup redention / delete old backups but keep weeklys
-# hat irc kein loglevel?
-#
-# locks setzen für mapcopy
-#	backup
-# 	overviewer
-
-
-# irc trigger für den pingback in den chats in die config einbauen
-
-
-
 
 
 
