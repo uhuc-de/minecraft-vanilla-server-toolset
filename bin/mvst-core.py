@@ -28,7 +28,6 @@ class Mvst:
 		"""
 		# Variables
 		self.__argv = ""
-		self.currentUser = None
 		
 		# Loglevel variables
 		self.LOGLEVEL = ('NONE', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
@@ -46,7 +45,7 @@ class Mvst:
 
 		# getopt
 		try:
-			opts, args = getopt.getopt(argv, "hc:u:", ["help"] )	# Option with ":" need an Argument
+			opts, args = getopt.getopt(argv, "hc:", ["help"] )	# Option with ":" need an Argument
 		except getopt.GetoptError:
 			print("Unknown arguments.")
 			self.usage()
@@ -59,8 +58,6 @@ class Mvst:
 				if self.__config == None:
 					print("Config file »%s« not found!" % argv[1])
 					exit(1)
-			elif opt in "-u": 
-				self.currentUser = arg
 			else:
 				print("unknown argument!")
 				self.usage()
@@ -91,8 +88,7 @@ class Mvst:
 				x = args
 				
 			if x == "help":
-				self.releaseLock("blubb")
-				#self.usage()
+				self.usage()
 
 			elif x == "start":
 				self.wrapper.wrapperStart()
@@ -113,7 +109,7 @@ class Mvst:
 			elif x == "irc":
 				self.irc.do(self.__argv[1:])
 			elif x == "remote":
-				remote = Remote(self)
+				remote = Remote(self, self.__argv[1])
 				remote.start()
 
 			elif x == "overviewer":
@@ -436,6 +432,7 @@ class Mvst:
 			return ""
 		return c
 
+
 	def getConfigArray(self):
 		""" Returns the whole config """
 		return self.__config
@@ -555,14 +552,8 @@ class Mvst:
 		return returncode
 
 
-	def usage(self):
-		"""
-		Prints the manual and then exits.
-		"""
-		helpmsg = """Usage: %s -c /path/to/config.ini -- <command> [<arguments>]
-
-Command:
-	help 			Print this message
+	def getCommandList(self):
+		return """	help 			Print this message
 
 	start			Starts the server
 	stop			Stops the server
@@ -574,7 +565,7 @@ Command:
 	update <version>	Perform backup and change to <version> (eg. 1.5.6)
 	whitelist <user> 	Perform backup and add <user> to whitelist
 	tracer			Logs the players positions
-	tracer-client	View and filter the tracer positions
+	tracer-client		View and filter the tracer positions
 	backup <reason>		Backups the server
 	(restore [backup]	Restore a specific backup)
 	overviewer		Renders the overviewer map
@@ -582,8 +573,19 @@ Command:
 
 	log			Open the logfile with less
 	shell			Show the tail of the logfile and starts the minecraft shell
-		""" % os.path.basename(__file__)
-		helpmsg="%%HELPTEXT%%"
+		"""
+
+
+	def usage(self):
+		"""
+		Prints the manual and then exits.
+		"""
+		helpmsg = """Usage: %s -c /path/to/config.ini -- <command> [<arguments>]
+
+Command:
+%s
+		""" % ( os.path.basename(__file__), self.getCommandList())
+		#helpmsg="%%HELPTEXT%%"
 		print(helpmsg)
 		exit(1)
 
@@ -904,12 +906,12 @@ class Remote:
 	"""
 	The remote class handles the usermanagement for remote connected users
 	"""
-	def __init__(self, mvst):
+	def __init__(self, mvst, username):
 		if not isinstance(mvst, Mvst):
 			print("CRITICAL: Remote.mvst ist not an instance of Mvst")
 		self.mvst = mvst
 		self.log = logging.getLogger('remote')
-		self.user = mvst.currentUser
+		self.user = username
 		self.conf = []
 
 
@@ -920,22 +922,74 @@ class Remote:
 		# check if user exists
 		if not ("remote-%s" % self.user) in self.mvst.getConfigArray():
 			print("You (%s) are not allowed to enter the remote shell!" % self.user)
-			# XXX uncomment: self.warning("User »%s« tried to login, but doesnt exist in the config ini!" % self.user)
+			self.log.warning("User »%s« tried to login, but doesnt exist in the config ini!" % self.user)
 			exit(1)
 		# load configs for user
 		self.conf = self.mvst.getConfigArray()["remote-%s" % self.user]
-		for i in self.conf:
-			print("config[%s]=%s" %(i, self.mvst.getConfigArray()["remote-max"][i]))
+
 		# start the shell for the user
-		print("start for user %s" % self.user)
-		pass#TODO: usermanagement, logging, 
+		print("You are now remote connected to mvst instance »%s«" % self.mvst.getInstance())
+		self.log.info("Connected: %s" % self.user)
+		self.menu()
+
+	def menu(self):
+		run=1
+		print("Type »help« to see all available commands")
+
+		while run:
+			i = input("\n> ")
+
+			# primitive commands
+			if i.lower() in ["q", "quit", "exit"]:
+				run = 0
+				break
+			if i.lower() in ["help", "?", "h"]:
+				self.printHelp()
+				continue
+				
+			try:
+				command = i.split(' ', 1)[0]
+				if self.isCommandAllowed(command):
+					self.executeCommand(i)
+				else:
+					print("You are not allowed to execute this command! Abusive behaviour will be reported.")
+					self.log.warning("ExecutionWarning (%s): %s" % (self.user, i) )
+			except configparser.NoOptionError:
+				print("This is not a valid command or you are not allowed to execute it.")
 
 
-	def help(self):
+	def executeCommand(self, command):
+		""" Executes the given command inside the mvst """
+		self.log.info("Execute (%s): %s" % (self.user, command) )
+		self.mvst.start(command)
+
+	def isCommandAllowed(self, command):
+		""" check if the given command can be executed by this user """
+		command = command.strip().lower()
+		isAllowed = self.mvst.getConfigArray().getboolean("remote-%s" % self.user, command )
+		if isAllowed:
+			return True
+		else:
+			return False
+
+
+	def getListOfAllowedCommands(self):
+		""" Get a list of commands which the user can execute """
+		allowed = []
+		c = self.mvst.getConfigArray()["remote-"+self.user]
+		for i in c:
+			if ( self.isCommandAllowed(i) ):
+				allowed.append(i)
+		return allowed
+
+	def printHelp(self):
 		"""
 		Prints the help for the remote plugin
 		"""
-		print("TODO: Remote.help()")
+		print("List of commands:")
+		print( self.mvst.getCommandList() )
+		print("You are allowed to use:")
+		print( ", ".join(self.getListOfAllowedCommands()) ) 
 
 
 
