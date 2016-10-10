@@ -105,15 +105,20 @@ def main(argv):
 
 		elif opt in "--since":
 			since = arg
+			if len(since) < 10:
+				print("ERROR: --since argument has wrong format!")
+				usage()
 			p=p+2
 
 		elif opt in "--until":
 			until = arg
+			if len(until) < 10:
+				print("ERROR: --until argument has wrong format!")
 			p=p+2
 
 	# remove all
-	argv = argv[p:]
 
+	argv = argv[p:]
 	filelist = argv
 
 
@@ -193,16 +198,16 @@ AND pos_x >= %s AND pos_x <= %s
 		print(sql)	
 
 
-
 	# datensätze holen
 	ergebnis = []
+	
 	for db in filelist:
 		if not isSQLite3(db):
 			print ("'%s' is not a SQLite3 database file" % db)
 			sys.exit(2)
 
 		query = getRecordsFromDb(db, sql)
-		
+
 		for satz in query:
 			ergebnis.append(satz)
 
@@ -212,7 +217,7 @@ AND pos_x >= %s AND pos_x <= %s
 		ergebnis= []
 		for i in tmp:
 			username = usercache.get(i[1], i[1])
-			if (username == "") or (userfilter in username):
+			if not filterUsername(username, userfilter):
 				j = (i[0], username, i[2], i[3], i[4], i[5])
 				ergebnis.append(j)
 
@@ -225,6 +230,10 @@ AND pos_x >= %s AND pos_x <= %s
 			print(makePrintable(i))
 		except IOError:
 			exit(0)
+	if len(sort) == 0:
+		print("No records found. Try another filter.")
+
+
 
 
 def getRecordsFromDb(dbfile, sql):
@@ -294,6 +303,16 @@ def isSQLite3(filename):
 		else:
 			return False
 
+"""
+Check if this username can be printed
+0 = Dont filter
+1 = Filter this name out
+"""
+def filterUsername(username, filterName):
+	if filterName == "":
+		return 0
+	if filterName.lower() not in username.lower():
+		return 1
 
 
 if __name__ == "__main__":
