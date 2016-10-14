@@ -133,12 +133,67 @@ class Mvst:
 			elif x == "tracer-client":
 				self.tracerClient(args_str)
 
+			elif x == "crash-reports":
+				self.crashReports(args_str)
+
+
 			else:
 				print("unknown command »%s«" % x)
 				self.usage()
 				
 		except KeyboardInterrupt:
 			pass
+
+
+
+	def viewFile(self, filename, fromBottom=False):
+		""" Views the given file with less """
+		if os.path.isfile(filename):
+			b = ""
+			if fromBottom:
+				b = " +G "
+			cmd = "less %s \"%s\"" % (b, filename)
+			#print(cmd)
+			if self.startShell(cmd):
+				self.log.critical("Can't execute the log view!")
+		else:
+			print("Can't view file »%s«!" % args)
+
+
+	### Crash Reports ###
+
+	def crashReports(self, args):
+		""" Shows a menu or the crash-reports with less """
+		reportPath = "%scrash-reports/" % self.getServerDir()
+		if os.path.isdir(reportPath): 
+			if len(args) < 1:
+				self.crashReportsList(reportPath)
+			else:
+				self.crashReportsView(args)
+		else:
+			print("No crash reports available")
+
+	def crashReportsList(self, reportPath):
+		""" List the available (max 10 newest) crash reports """
+		limit = 3
+		cmd = "ls -1 \"%s\" | head -n %s" % (reportPath, limit)
+		out = self.qx(cmd, returnoutput=True)
+		if len(out.strip()) == 0:
+			print("No crash reports available")
+		else:
+			out = out[:-1].split("\n")
+
+			itera = len(out)
+			for i in out:
+				print("(%s) %s" % (itera, i))
+				itera -= 1
+
+			x = input('View file: ')
+			try:
+				x = int(x)
+				self.viewFile(reportPath+out[-x])
+			except (ValueError, IndexError) :
+				print("Wrong input.")
 
 
 	### Log ###
@@ -400,7 +455,6 @@ class Mvst:
 
 
 
-
 	### Config ###
 
 
@@ -560,19 +614,24 @@ class Mvst:
 	status			Shows the status of the server
 	restart			Restarts the Server
 
+	log			Open the logfile with less
+	shell			Show the tail of the logfile and starts the minecraft shell
+
 	say <msg>		Say <msg> ingame
 	control <cmd>		Sends a raw command to the server
 	update <version>	Perform backup and change to <version> (eg. 1.5.6)
 	whitelist <user> 	Perform backup and add <user> to whitelist
-	tracer			Logs the players positions
-	tracer-client		View and filter the tracer positions
+
 	backup <reason>		Backups the server
 	(restore [backup]	Restore a specific backup)
+
 	overviewer		Renders the overviewer map
 	irc <start|stop|restart|status>	Controls the irc-bridge
 
-	log			Open the logfile with less
-	shell			Show the tail of the logfile and starts the minecraft shell
+	tracer			Logs the players positions
+	tracer-client		View and filter the tracer positions
+
+	crash-reports	Let you select and view the crash-reports
 		"""
 
 
@@ -936,7 +995,7 @@ class Remote:
 
 	def menu(self):
 		run=1
-		print("Type »help« to see all available commands")
+		self.printWelcome()
 
 		while run:
 			i = input("\n> ")
@@ -997,6 +1056,10 @@ class Remote:
 			return "local"
 		return ip
 
+	def printWelcome(self):
+		""" Prints the welcome message """
+		print("")
+		print("Type »help« to see all available commands")
 
 	def printHelp(self):
 		"""
