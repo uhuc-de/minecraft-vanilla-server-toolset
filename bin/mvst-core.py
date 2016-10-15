@@ -160,6 +160,18 @@ class Mvst:
 			print("Can't view file »%s«!" % args)
 
 
+	def getVersion(self):
+		""" Returns the current version of the minecraft server if possible """
+		cmd = "cat %sversion" % self.getServerDir()
+		if not self.qx(cmd):
+			return self.qx(cmd, returnoutput=True)
+		else:
+			return "No version available"
+
+
+
+
+
 	### Crash Reports ###
 
 	def crashReports(self, args):
@@ -481,10 +493,9 @@ class Mvst:
 		"""
 		c = self.__config[section].get(key)
 		if c == None:
-			#raise Exception("key »%s« inside the config section »%s« not found" % (key, section))
 			errmsg = "key »%s« inside the config section »%s« not found" % (key, section)
-			self.log.warning(errmsg)
-			print (errmsg) # FIXME: warnmeldung wirklich notwendig?
+			self.log.critical(errmsg)
+			print (errmsg)
 			return ""
 		return c
 
@@ -584,13 +595,12 @@ class Mvst:
 
 		TODO: http://xahlee.info/perl-python/system_calls.html
 		"""
-
 		try:
 			output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
 			returncode = 0
 		except subprocess.CalledProcessError as e: # Do if returncode != 0
 			output = e.output.splitlines()
-			self.log.debug("qx returns %s - %s" %(e.returncode, cmd))
+			#self.log.debug("qx returns %s - %s" %(e.returncode, cmd))
 			returncode = "%s" % e.returncode
 			if returncode == None:
 				returncode = "typeOfNone"
@@ -602,7 +612,7 @@ class Mvst:
 				out = out+"\n"
 		if returnoutput:
 			return out
-		
+
 		return returncode
 
 
@@ -644,7 +654,6 @@ class Mvst:
 Command:
 %s
 		""" % ( os.path.basename(__file__), self.getCommandList())
-		#helpmsg="%%HELPTEXT%%"
 		print(helpmsg)
 		exit(1)
 
@@ -827,11 +836,10 @@ class WrapperCtl:
 
 			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.mvst.getPython2(), _wrapper, self.mvst.getSocket(), self.mvst.getLoglevel(), self.mvst.getLogfile(), _java)
 			daemon = Daemon(self.mvst)
-			r = daemon.start(wrappercmd, "wrapper", self.mvst.getServerDir()) # TODO: write instance in name
+			r = daemon.start(wrappercmd, "wrapper", self.mvst.getServerDir()) # TODO: write instance in daemon-name?
 			if r == 0:
 				print("Done")
 				if self.mvst.getAutorunIrc():
-					#print("TODO: start irc-bridge")
 					self.mvst.irc.ircStart()
 				return 0
 			else:
@@ -903,9 +911,9 @@ class WrapperCtl:
 		_instance = self.mvst.getInstance()
 		_socket = self.mvst.getSocket()
 		cmd = "%s %scontrol.py -s %s --check" % (self.mvst.getPython2(), self.mvst.getBinDir(), _socket)
-		r = self.mvst.qx(cmd) # TODO: use daemon.status
-		
-		if r == 0:
+		r = "%s" % self.mvst.qx(cmd) # cast int to string
+
+		if r == "0":
 			return True
 		elif r == "2":
 			self.log.debug("Can't connect to socket (%s)!" % _socket)
@@ -922,10 +930,11 @@ class WrapperCtl:
 		_socket = self.mvst.getSocket()
 		cmd = "echo '%s' | %s %scontrol.py -s %s 2>> %s > /dev/null" % (message, self.mvst.getPython2(), self.mvst.getBinDir(), _socket, self.mvst.getLogfile())
 		r = self.mvst.qx(cmd)
-		if r == 0:
+		
+		if r == "0":
 			return 0
-		elif r == 2:
-			self.log.debug("Can't connect to socket (%s)!" % _socket)
+		elif r == "2":
+			self.log.debug("Can't connect to socket (%s)" % _socket)
 			return 1
 		else:
 			self.log.error("Unknown error inside control.py (returncode=%s)" % r)
@@ -970,7 +979,7 @@ class Remote:
 		self.mvst = mvst
 		self.log = logging.getLogger('remote')
 		self.user = username
-		self.conf = []
+		#self.conf = []
 
 
 	def start(self):
@@ -1056,10 +1065,12 @@ class Remote:
 			return "local"
 		return ip
 
+
 	def printWelcome(self):
 		""" Prints the welcome message """
-		print("")
+		print("Version: %s" % self.mvst.getVersion() )
 		print("Type »help« to see all available commands")
+
 
 	def printHelp(self):
 		"""
