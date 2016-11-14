@@ -119,7 +119,7 @@ class Mvst:
 			elif x == "whitelist":
 				self.whitelist(args_str)
 			elif x == "update":
-				self.whitelist(args_str)
+				self.update(args_str)
 				
 			elif x == "backup":
 				self.archive.backup(args_str)
@@ -269,7 +269,7 @@ class Mvst:
 		startagain=False
 
 		# Download the jars
-		echo("Download server.jar ... ")
+		self.echo("Download server.jar ... ")
 		cmd = "%s -q -O \"%sminecraft_server.jar\" \"http://s3.amazonaws.com/Minecraft.Download/versions/%s/minecraft_server.%s.jar\"" % (self.get("bins", "wget"), self.getTmpDir(), version, version)
 		r1 = self.qx(cmd)
 		if r1:
@@ -277,7 +277,7 @@ class Mvst:
 		else:
 			print("done")
 
-		echo("Download client.jar ... ")
+		self.echo("Download client.jar ... ")
 		cmd = "%s -q -O \"%sminecraft_client.jar\" \"http://s3.amazonaws.com/Minecraft.Download/versions/%s/%s.jar\"" % (self.get("bins", "wget"), self.getTmpDir(), version, version)
 		r2 = self.qx(cmd)
 		if r2:
@@ -286,9 +286,9 @@ class Mvst:
 			print("done")
 
 		# check if download was successfull
-		if (r1 != 0) and (r2 != 0):
+		if (r1 != "0") and (r2 != "0"):
 
-			echo("Backup... ")
+			self.echo("Backup... ")
 			if self.archive.backup("update_%s" % version):
 				print("Failed")
 				return 1
@@ -314,6 +314,7 @@ class Mvst:
 			self.qx("echo %s > \"%sversion\"" % (version, self.getServerDir()) )
 
 			self.log.info("Update to »%s« was successful" % version)
+			print("Update to »%s« was successful" % version)
 
 		else:
 			# download failed
@@ -530,7 +531,8 @@ class Mvst:
 
 	def getHomeDir(self):
 		""" Return the current homedir by the absolute path of __file__ and removes the 'bin' dir """
-		return os.path.dirname(os.path.abspath(__file__))[:-3]
+		homedir = os.path.abspath(os.path.join(os.path.abspath(__file__), "../.."))
+		return homedir+"/"
 
 	def getTmpDir(self):
 		""" Return the current tmp dir """
@@ -570,7 +572,7 @@ class Mvst:
 
 	def echo(self, s):
 		"""Do not output the trailing newline with print()"""
-		print("%s " % s, end="",flush=True)
+		print("%s " % s, end="", flush=True)
 		#print('.',end="",flush=True)
 
 
@@ -595,6 +597,7 @@ class Mvst:
 
 		TODO: http://xahlee.info/perl-python/system_calls.html
 		"""
+		self.log.debug("qx: %s" % cmd )
 		try:
 			output = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).splitlines()
 			returncode = 0
@@ -856,7 +859,10 @@ class WrapperCtl:
 		if self.isWrapperRunning():
 			if reason != "":
 				reason = "(Reason: %s)" % reason
-			self.say("Server stops in 3 seconds. %s" % reason)
+			if reason == "restart":
+				self.say("Server restarts in 3 seconds.")
+			else:
+				self.say("Server stops in 3 seconds. %s" % reason)
 
 			if self.mvst.irc.isIrcRunning():
 				self.mvst.irc.ircStop()
@@ -883,7 +889,7 @@ class WrapperCtl:
 		"""
 		print("Restarting...")
 		if reason == "":
-			reason = "restarting"
+			reason = "restart"
 		r = self.wrapperStop(reason)
 		if r == 0:
 			time.sleep(3)
@@ -1106,7 +1112,11 @@ class Daemon:
 		"""
 		# build the command
 		_pidfile = "%s%s_%s.pid" % (self.mvst.getTmpDir(), name, self.mvst.getInstance())
-		daemoncmd = "%s -n %s --start --background --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), name, self.mvst.get("core", "user"), self.mvst.get("core", "group"), _pidfile, chdir, cmd)
+		_group = self.mvst.get("core", "group")
+		_user = self.mvst.get("core", "user")
+		#daemoncmd = "%s -n %s --start --background --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), name, self.mvst.get("core", "user"), self.mvst.get("core", "group"), _pidfile, chdir, cmd)
+		
+		daemoncmd = "%s -n %s --start --background --chuid %s:%s --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), name, _user, _group, _user, _group, _pidfile, chdir, cmd)
 		return self.mvst.qx(daemoncmd)
 
 	def stop(self, name):
