@@ -373,18 +373,21 @@ class Mvst:
 			print("Name of the user is not given.")
 			return 1
 
-		if self.mvst.wrapper.isWrapperRunning():
+		if self.wrapper.isWrapperRunning():
 			user = user.lower()
+			print("Add to whitelist: %s" % user)
 			self.log.info("Add to whitelist: %s" % user)
-			self.mvst.wrapper.say("Whitelist user »%s«" % user)
+			self.wrapper.say("Whitelist user »%s«" % user)
 
+			print("Backup...")
 			if self.archive.backup(user):
 				print("Whitelist failed!")
 				self.log.error("Whitelist failed!")
-				self.mvst.wrapper.say("Whitelist failed!")
+				self.wrapper.say("Whitelist failed!")
 			else:
-				self.mvst.wrapper.control("whitelist add %s" % user)
-				self.mvst.wrapper.say("Added »%s« to whitelist" % user)
+				print("Added »%s« to whitelist" % user)
+				self.wrapper.control("whitelist add %s" % user)
+				self.wrapper.say("Added »%s« to whitelist" % user)
 		else:
 			print("Could not connect to the server!")
 
@@ -985,7 +988,6 @@ class Remote:
 		self.mvst = mvst
 		self.log = logging.getLogger('remote')
 		self.user = username
-		#self.conf = []
 
 
 	def start(self):
@@ -1003,7 +1005,7 @@ class Remote:
 		self.conf = self.mvst.getConfigArray()["remote-%s" % self.user]
 
 		# start the shell for the user
-		print("You are now remote connected to mvst instance »%s«" % self.mvst.getInstance())
+		print("You are now remote connected to mvst instance »%s« as %s" % (self.mvst.getInstance(), self.user) )
 		self.log.info("Connected: %s (%s)" % (self.user, remoteip))
 		self.menu()
 
@@ -1016,13 +1018,16 @@ class Remote:
 			i = input("\n> ")
 
 			# primitive commands
-			if i.lower() in ["q", "quit", "exit"]:
+			if i.lower() in ["q", "quit", "exit"]: # Quits
 				run = 0
 				break
-			if i.lower() in ["help", "?", "h"]:
+			if i.lower() in ["help", "?", "h"]: # Help
 				self.printHelp()
 				continue
-				
+			if i.split(" ")[0].lower() in ["change"]: # Change instance
+				self.changeInstance(i.split(" ")[1])
+				continue
+			
 			try:
 				command = i.split(' ')[0]
 				
@@ -1035,6 +1040,16 @@ class Remote:
 				print("This is not a valid command or you are not allowed to execute it.")
 
 		print("Quitting remote connection")
+
+	def changeInstance(self, instance):
+		""" Change from the current remote session to another instance """
+		try:
+			print("change instance to %s" % instance)
+			home = self.mvst.getHomeDir()
+			cmd = "python3 %smvst-core.py -c %smvst-%s.ini -- remote %s" % (home, home, instance, self.user)
+			print("cmd=%s" % cmd)
+		except:
+			print("Error during change instance")
 
 
 	def executeCommand(self, command):
