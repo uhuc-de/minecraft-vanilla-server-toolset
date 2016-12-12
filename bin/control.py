@@ -7,7 +7,7 @@ import socket, select, string, sys, getopt, traceback
 """
 Show the usage
 """
-def help(self):
+def help():
 	print("""control.py [<options> ...] 
 
 Options:
