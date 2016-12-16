@@ -68,6 +68,7 @@ try :
 except:
 	if not check:
 		sys.stdout.write("can't connect to socket: %s\n" % socketfile)
+		print("Unexpected error: %s" % e)
 	sys.exit(2)
 
 if check:
