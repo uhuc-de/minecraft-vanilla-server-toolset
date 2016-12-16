@@ -107,7 +107,8 @@ class Mvst:
 				w.say(args_str)
 			elif x == "shell":
 				self.wrapper.shell(args)
-				
+			elif x == "force-kill":
+				self.forceKill()
 			elif x == "irc":
 				return self.irc.do(args)
 			elif x == "remote":
@@ -392,6 +393,29 @@ class Mvst:
 			print("Could not connect to the server!")
 
 
+	### Force kill ###
+
+	def forceKill(self):
+		""" Sends SIGTERM to the java process """
+		self.echo("Kill the minecraft server... ");
+		cmd = "kill $(ps -u %s -f | grep  \"%s\" | grep -v 'wrapper.py' | grep -v 'grep' | awk '{print $2}')" % ( self.get("core", "user"), self.wrapper.getJavaCommand() )
+
+		if self.qx(cmd):
+			print("ERROR: Cant force-kill the java process!")
+			self.log.warning("Killing the process failed!")
+		else:
+			self.log.info("Killig the process was successful.")
+			print("done")
+
+			cmd = "rm -f %s" % self.getSocket()
+			if self.qx(cmd):
+				print("ERROR: Cant remove wrappers socket file")
+
+			cmd = "rm -f %s" % self.wrapper.getDaemon().getPidFile()
+			if self.qx(cmd):
+				print("ERROR: Cant remove wrappers pidfile")
+
+
 
 	### Server copy ###
 
@@ -515,10 +539,6 @@ class Mvst:
 	def getSocket(self):
 		""" Return the current wrapper socket from the config """
 		return "%swrapper_%s.socket" % ( self.getTmpDir(), self.getInstance() ) 
-
-	def getPidFileWrapper(self): # TODO: should be function of daemon class
-		""" returns the pidfile of the wrapper """
-		return "%s%s_%s.pid" % (self.getTmpDir(), name, _instance)
 
 	def getPython2(self):
 		""" returns the path to the python2 bin """
@@ -823,6 +843,8 @@ class WrapperCtl:
 		self.name = "" # not more than 15 characters due to »comm«-name of kernel # TODO
 		self.log = logging.getLogger('wrapperctl')
 
+		self.daemon = Daemon(self.mvst, "wrapper") # TODO: write instance in daemon-name?
+
 
 	def wrapperStart(self):
 		"""
@@ -838,11 +860,9 @@ class WrapperCtl:
 		else:
 			# build the command
 			_wrapper = "%swrapper.py" % self.mvst.getBinDir()
-			_java = "java -jar %sminecraft_server.jar %s nogui" % (self.mvst.getServerDir(), self.mvst.get("wrapper", "javaopts"))
 
-			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.mvst.getPython2(), _wrapper, self.mvst.getSocket(), self.mvst.getLoglevel(), self.mvst.getLogfile(), _java)
-			daemon = Daemon(self.mvst)
-			r = daemon.start(wrappercmd, "wrapper", self.mvst.getServerDir()) # TODO: write instance in daemon-name?
+			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.mvst.getPython2(), _wrapper, self.mvst.getSocket(), self.mvst.getLoglevel(), self.mvst.getLogfile(), self.getJavaCommand() )
+			r = self.daemon.start(wrappercmd, self.mvst.getServerDir()) 
 			if r == 0:
 				print("Done")
 				if self.mvst.getAutorunIrc():
@@ -872,8 +892,7 @@ class WrapperCtl:
 				
 			time.sleep(3)
 				
-			daemon = Daemon(self.mvst)
-			r = daemon.stop("wrapper")
+			r = self.daemon.stop()
 
 			if r == 0:
 				print("Done")
@@ -917,7 +936,6 @@ class WrapperCtl:
 		Check if the wrapper is running. It tests the connection to the socket
 		Return True for yes and False for no
 		"""
-		_instance = self.mvst.getInstance()
 		_socket = self.mvst.getSocket()
 		cmd = "%s %scontrol.py -s %s --check" % (self.mvst.getPython2(), self.mvst.getBinDir(), _socket)
 		r = "%s" % self.mvst.qx(cmd) # cast int to string
@@ -957,8 +975,6 @@ class WrapperCtl:
 		return self.control("say %s" % message)
 
 
-
-
 	def shell(self, args):
 		"""
 		Starts a shell for the user
@@ -969,7 +985,15 @@ class WrapperCtl:
 		self.mvst.startShell(shellcmd)
 
 
+	def getJavaCommand(self):
+		""" Returns the command to start the java process """
+		cmd = "java -jar %sminecraft_server.jar %s nogui" % (self.mvst.getServerDir(), self.mvst.get("wrapper", "javaopts"))
+		return cmd.replace("  ", " ")
 
+
+	def getDaemon(self):
+		""" Returns the daemon """
+		return self.daemon
 
 
 
@@ -1112,36 +1136,35 @@ class Daemon:
 	The daemon class start and stop a daemon with start-stop-daemon and give back a status
 	"""
 
-	def __init__(self, mvst):
+	def __init__(self, mvst, name):
 		if not isinstance(mvst, Mvst):
 			print("CRITICAL: Daemon's mvst ist not an instance of Mvst")
 		self.mvst = mvst
 		self.log = logging.getLogger('daemon')
+		self.name = name
 
 
-	def start(self, cmd, name, chdir):
+	def start(self, cmd, chdir):
 		"""
 		Starts a command as a daemon
 		Return 0 by success
 		and 1 by failure
 		"""
 		# build the command
-		_pidfile = "%s%s_%s.pid" % (self.mvst.getTmpDir(), name, self.mvst.getInstance())
 		_group = self.mvst.get("core", "group")
 		_user = self.mvst.get("core", "user")
-		#daemoncmd = "%s -n %s --start --background --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), name, self.mvst.get("core", "user"), self.mvst.get("core", "group"), _pidfile, chdir, cmd)
 		
-		daemoncmd = "%s -n %s --start --background --chuid %s:%s --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), name, _user, _group, _user, _group, _pidfile, chdir, cmd)
+		daemoncmd = "%s -n %s --start --background --chuid %s:%s --user %s --group %s --pidfile %s --make-pidfile --chdir %s --exec %s" %(self.getDaemonBin(), self.name, _user, _group, _user, _group, self.getPidFile(), chdir, cmd)
 		return self.mvst.qx(daemoncmd)
 
-	def stop(self, name):
+	def stop(self):
 		"""
-		Stops the daemon with the specific name
+		Stops the daemon
 		"""
-		cmd = "%s --pidfile %stmp/%s_%s.pid --stop --signal INT --retry 10" % (self.mvst.get("bins","start-stop-daemon"), self.mvst.getHomeDir(), name, self.mvst.getInstance())
+		cmd = "%s --pidfile %s --stop --signal INT --retry 10" % (self.mvst.get("bins","start-stop-daemon"), self.getPidFile() )
 		return self.mvst.qx(cmd)
 
-	def status(self, name):
+	def status(self):
 		"""
 		Checks if a daemon is running
 		Return Codes:
@@ -1150,17 +1173,16 @@ class Daemon:
 			3 Program is not running.
 			4 Unable to determine program status.
 		"""
-		cmd = "%s --pidfile %s --status" % (self.getDaemonBin(), self.getPidFile(name))
+		cmd = "%s --pidfile %s --status" % (self.getDaemonBin(), self.getPidFile() )
 		return self.mvst.qx(cmd)
-		pass
 
 	def getDaemonBin(self):
 		""" returns the path to the start-stop-daemon binary """
 		return self.mvst.get("bins","start-stop-daemon")
 
-	def getPidFile(self, name):
+	def getPidFile(self):
 		""" return the path of the given pidfile """
-		return "%s%s_%s.pid" % (self.mvst.getTmpDir(), name, self.mvst.getInstance())
+		return "%s%s_%s.pid" % (self.mvst.getTmpDir(), self.name, self.mvst.getInstance())
 
 
 ########################################################
@@ -1177,7 +1199,9 @@ class Irc:
 			print("CRITICAL: Irc.mvst (%s) ist not an instance of Mvst" % type(mvst))
 		self.mvst = mvst
 		self.log = logging.getLogger('irc')
-		
+
+		self.daemon = Daemon(self.mvst, "irc")
+
 
 	def do(self, command):
 		""" Starts a function with the correct commands """
@@ -1216,10 +1240,11 @@ class Irc:
 			_instance = self.mvst.getInstance()
 
 			irccmd = "%s -- %sirc.py -l %s -r %s -n %s %s %s %s" \
-						%(self.mvst.getPython2(), self.mvst.getBinDir(), self.mvst.getLogfile(), self.mvst.get("irc","realname"), self.mvst.get("irc","nick"), self.mvst.getSocket(), self.mvst.get("irc","host"), self.mvst.get("irc","channel"))
+						%(self.mvst.getPython2(), self.mvst.getBinDir(), self.mvst.getLogfile(), \
+						self.mvst.get("irc","realname"), self.mvst.get("irc","nick"), \
+						self.mvst.getSocket(), self.mvst.get("irc","host"), self.mvst.get("irc","channel"))
 
-			daemon = Daemon(self.mvst)
-			r = daemon.start(irccmd, "irc", self.mvst.getServerDir())
+			r = self.daemon.start(irccmd, self.mvst.getServerDir())
 
 			if r == 0:
 				print("Done")
@@ -1241,9 +1266,7 @@ class Irc:
 		if self.isIrcRunning():
 
 			# TODO: reason mitgeben
-
-			daemon = Daemon(self.mvst)
-			r = daemon.stop("irc")
+			r = self.daemon.stop()
 
 			if r == 0:
 				print("Done")
@@ -1283,8 +1306,7 @@ class Irc:
 		Return 1 for yes and 0 for no
 		"""
 
-		daemon = Daemon(self.mvst)
-		r = daemon.status("irc")
+		r = self.daemon.status()
 
 		if r == 0:
 			return 1
@@ -1294,6 +1316,10 @@ class Irc:
 			self.log.error("Unknown error inside isIrcRunning() (returncode=%s)" % r)
 			return 0
 
+
+	def getDaemon(self):
+		""" Returns the daemon """
+		return self.daemon
 
 ########################################################
 
