@@ -27,104 +27,142 @@ Dependencies:
 
 Install the dependencies of the toolset:
 
+### Core functionality
+
 * python 2.7
 * python 3
 * start-stop-daemon
 * tar
 * java
 * wget
-* cron
 * less
 * coreutils
 * bash
+
+### optional dependencies
+
+* cron
 * nbt (https://github.com/twoolie/NBT / https://pypi.python.org/pypi/NBT)
 * minecraft-overviewer (http://overviewer.org/)
 * rsync
+
 
 Installation:
 ------------------
 
 * install all needed dependencies
-* add a user named "minecraft" to your system
-* login as user "minecraft"
-* clone the git-repo into the directory you wanna have the mvst (eg. /home/minecraft)
-* chmod +x ~/bin/*
-* change to the ~/bin directory
-* to install run: ~/bin/install.sh <version> [<instance>]
-	* eg: install.sh 1.7.10 default
-* change the global variables in minecraftd.<instance>.sh to your needs (if you need to):
-	* "\_MC\_GROUP" and "\_MC\_USER"
-* change to the directory ~/server/default/ and edit the server.properties if you need to
+* add a user named "minecraft" to your system (optional)
+* login as user "minecraft" (optional)
+* clone the git-repo into the directory you wanna have the mvst (eg. ~/ )
+* rename the git-repo to »mvst« (optional)
+* change to the »bin« directory of the MVST
+* copy the mvst-default.ini to mvst-<INSTANCENAME>.ini and edit it, till it fits your needs
+* run »$ python3 mvst-core.py -c mvst-<INSTANCENAME>.ini -- install <VERSION>« to create the directories of the instance and download the minecraft_server.jar in the given version (eg. »$ python3 mvst-core.py -c mvst-myinstance.ini -- install 1.10.3«)
+* you can now use the shortcut script (eg. »mvst-myinstance.sh«) to control your instance
+* change to the directory mvst/server/default/ and edit the server.properties if you need to
 
-To test your settings, start the server, stop it with a command and check the logs:
+To test your settings: start the server, stop it and check the log with the shortcut script:
 
-	$ minecraftd.default.sh start
-	$ minecraftd.default.sh control stop
-	$ minecraftd.default.sh log
+	$ ./mvst-<INSTANCENAME>.sh start
+	$ ./mvst-<INSTANCENAME>.sh stop
+	$ ./mvst-<INSTANCENAME>.sh log
 
+Now your server should be usable!
 
 
 ### Log player positions
 
 If you want to log the movements of every player every minute on your server you should add to your crontab:
 
-	* * * * * /path/to/minecraftd.default.sh tracer
+	* * * * * /path/to/shortcut.sh tracer
 
-The variable "\_TRACER\_DATABASE" is the place of the records. The default file is "tracer\_data.sqlite" inside the map directory. If you want to read out the position records, use tracer-client.py.
+Use »shortcut.sh tracer-client« to read out the sqlite file.
 
 ### daily backup
 
 Write to the crontab:
 
-	0 0 * * * /path/to/minecraftd.default.sh backup daily
+	0 0 * * * /path/to/shortcut.sh backup daily
 
 ### render the overviewer
 
 If you want to have an updated overviewer map every 3 hours, write to the crontab:
 
-	0 */3 * * * /path/to/minecraftd.default.sh overviewer
+	0 */3 * * * /path/to/shortcut.sh overviewer
 
-The html outcome is saved under overviewer/$instance/html. You can symlink it to your homepage or edit the minecraftd-core.sh function do_overviewer() to your need.
+You must create a settings.py for minecraft-overviewer and name the path in the INI-file of the instance
 
 
 Usage:
 ------------------
 
 
-	Usage: ./minecraftd.default.sh {command}
+	Usage: python3 mvst-core.py -c {ini-file} -- {command} <options>
 
 	Command:
 		start			Starts the server
 		stop			Stops the server
 		status			Shows the status of the server
 		restart			Restarts the Server
+		force-kill		Send SIGTERM to the java process
 
 		say <msg>		Say <msg> ingame
 		control <cmd>		Sends a raw command to the server
 		update <version>	Perform backup and change to <version> (eg. 1.5.6)
 		whitelist <user> 	Perform backup and add <user> to whitelist
+
 		tracer			Logs the players positions
+		tracer-client	Reads the players position and filters them
+
 		backup <reason>		Backups the server
-		restore [backup]	Restore a specific backup
+
 		overviewer		Renders the overviewer map
 		irc <start|stop|restart|status>	Controls the irc-bridge
 
 		log			Open the logfile with less
+		crash-reports	List and view the crash-reports of the minecraft server
 		shell			Show the tail of the logfile and starts the minecraft shell
+		remote <user>		Start a remote session with the given user
 
 
 Multiple instances:
 -------------------
 
-If you want to run multiple instances of minecraft on the same machine you just need to run the installer with a different instance parameter:
-eg.: $ install.sh <version> instancename
+If you want to have more than one server instance, then you need to copy the ini-file and execute the install command
+
+
+Modules:
+-------------------
+
+Most of the modules can be used standalone (without the mvst) or they can be replaced by another program.
+
+### wrapper.py
+
+Starts the minecraft_server.jar and provides a unix socket that other processes can "talk" to the minecraft server.
+
+### irc.py
+
+Connects to the unix socket and an irc channel and bridges the chat between these two chatrooms.
+
+### tracer.py
+
+A simple programm that logs the players in-game position inside a sqlite file.
+
+### tracer-client.py
+
+A command tool skript to filter the sqlite file of the tracer.py
+
+### control.py
+
+Sends a control command to the minecraft server over the unix socket. Can be used for all minecraft ingame admin commands.
+
 
 
 Troubleshooting:
 ------------------
 
-### If the user minecraft can't execute start-stop-daemon, edit the /etc/sudoers with visudo
-	minecraft       ALL = NOPASSWD: /usr/sbin/start-stop-daemon
+### If the user who uses the mvst can't execute start-stop-daemon, edit the /etc/sudoers with visudo
+	myuser       ALL = NOPASSWD: /usr/sbin/start-stop-daemon
 
 
 
