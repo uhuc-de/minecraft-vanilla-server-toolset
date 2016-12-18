@@ -8,6 +8,7 @@ import subprocess # needed by qx()
 import configparser # needed by loadConfig
 import logging	# used for logging
 import datetime # needed for date calculations
+import stat # used for chmod
 import getopt
 
 import re # regex
@@ -121,7 +122,10 @@ class Mvst:
 				self.whitelist(args_str)
 			elif x == "update":
 				self.update(args_str)
-				
+			elif x == "install":
+				self.install(args_str)
+
+			
 			elif x == "backup":
 				self.archive.backup(args_str)
 
@@ -270,24 +274,10 @@ class Mvst:
 		startagain=False
 
 		# Download the jars
-		self.echo("Download server.jar ... ")
-		cmd = "%s -q -O \"%sminecraft_server.jar\" \"http://s3.amazonaws.com/Minecraft.Download/versions/%s/minecraft_server.%s.jar\"" % (self.get("bins", "wget"), self.getTmpDir(), version, version)
-		r1 = self.qx(cmd)
-		if r1:
-			print("fail!")
-		else:
-			print("done")
+		self.echo("Download server.jar and client.jar ... ")
 
-		self.echo("Download client.jar ... ")
-		cmd = "%s -q -O \"%sminecraft_client.jar\" \"http://s3.amazonaws.com/Minecraft.Download/versions/%s/%s.jar\"" % (self.get("bins", "wget"), self.getTmpDir(), version, version)
-		r2 = self.qx(cmd)
-		if r2:
-			print("fail!")
-		else:
-			print("done")
-
-		# check if download was successfull
-		if (r1 != "0") and (r2 != "0"):
+		if self.downloadJars(version):
+			print("Done") 
 
 			self.echo("Backup... ")
 			if self.archive.backup("update_%s" % version):
@@ -301,18 +291,8 @@ class Mvst:
 				if self.wrapper.wrapperStop("Update to version %s: Server is going to restart!" % version):
 					print("failed to shutdown")
 					return 1
-				
-				
-			# move jars to serverdir
-			os.rename("%sminecraft_server.jar" % self.getTmpDir(), "%sminecraft_server.jar" % self.getServerDir())
-			os.rename("%sminecraft_client.jar" % self.getTmpDir(), "%sminecraft_client.jar" % self.getServerDir())
 
-			# changing ownership
-			self.qx("chown %s:%s \"%sminecraft_server.jar\"" % (self.get("core","user"), self.get("core","group"), self.getServerDir()) )
-			self.qx("chown %s:%s \"%sminecraft_client.jar\"" % (self.get("core","user"), self.get("core","group"), self.getServerDir()) )
-
-			# write current version to file
-			self.qx("echo %s > \"%sversion\"" % (version, self.getServerDir()) )
+			self.installJars(version)
 
 			self.log.info("Update to »%s« was successful" % version)
 			print("Update to »%s« was successful" % version)
@@ -320,12 +300,46 @@ class Mvst:
 		else:
 			# download failed
 			print("Couldn't download the files. Maybe the version was wrong?")
-			self.log.info("Unable to download version »%s«. Returncodes of wget were »%s« and »%s«." % (version, r1, r2) )
+			self.log.info("Unable to download version »%s«." % (version) )
 			return 1
 
 		if startagain:
 			self.wrapper.wrapperStart()
 
+
+	def downloadJars(self, version):
+		""" Downloads the minecraft jars into the tmp directory """
+		noerror = True
+		
+		link = "http://s3.amazonaws.com/Minecraft.Download/versions/%s/minecraft_server.%s.jar" % (version, version)
+		cmd = "%s -q -O \"%sminecraft_server.jar\" \"%s\"" % (self.get("bins", "wget"), self.getTmpDir(), link)
+		r1 = self.qx(cmd)
+		if r1:
+			print("Cant download %s" % link)
+			noerror = False
+
+		link = "http://s3.amazonaws.com/Minecraft.Download/versions/%s/%s.jar" % (version, version)
+		cmd = "%s -q -O \"%sminecraft_client.jar\" \"%s\"" % (self.get("bins", "wget"), self.getTmpDir(), link)
+		r2 = self.qx(cmd)
+		if r2:
+			print("Cant download %s" % link)
+			noerror = False
+
+		return noerror
+
+
+	def installJars(self, version):
+		""" move the minecraft jars in tmp to their destination and chown them """
+		# move jars to serverdir
+		os.rename("%sminecraft_server.jar" % self.getTmpDir(), "%sminecraft_server.jar" % self.getServerDir())
+		os.rename("%sminecraft_client.jar" % self.getTmpDir(), "%sminecraft_client.jar" % self.getServerDir())
+
+		# changing ownership
+		self.qx("chown %s:%s \"%sminecraft_server.jar\"" % (self.get("core","user"), self.get("core","group"), self.getServerDir()) )
+		self.qx("chown %s:%s \"%sminecraft_client.jar\"" % (self.get("core","user"), self.get("core","group"), self.getServerDir()) )
+
+		# write current version to file
+		self.qx("echo %s > \"%sversion\"" % (version, self.getServerDir()) )
 
 
 	### Overviewer ###
@@ -415,6 +429,69 @@ class Mvst:
 			if self.qx(cmd):
 				print("ERROR: Cant remove wrappers pidfile")
 
+
+	### Install ###
+
+	def install(self, version):
+		""" Creates the directories for a new instance and downloads the jars """
+		if len(version) < 3:
+			print("CRITICAL: the install command needs a version argument!")
+			self.usage()
+
+
+		print("Create new instance of mvst named »%s« with minecraft version %s" % (self.getInstance(), version) )
+
+		# create directories
+		self.echo("(1/3) make directories... ")
+		try:
+			os.makedirs( self.getServerDir() )
+		except OSError:
+			pass
+		try:
+			os.makedirs( self.getBackupDir() )
+		except OSError:
+			pass
+		try:
+			os.makedirs( "%slogs" % self.getHomeDir() )
+		except OSError:
+			pass
+		try:
+			os.makedirs( "%stmp" % self.getHomeDir() )
+		except OSError:
+			pass
+		try:
+			os.makedirs( "%sservercopy" % self.getShareDir() )
+		except OSError:
+			pass
+		print("done")
+
+		# download minecraft jars
+		self.echo("(2/3) download jars... ")
+		if self.downloadJars(version):
+			self.installJars(version)
+			print("done")
+
+			# create the shortcut shell script
+			self.echo("(3/3) create shortcut shell... ")
+			filename = self.getNewShortcutSkriptFilename( self.getInstance() )
+			fo = open(filename, "w")
+			fo.write( "#!/bin/bash\n\npython3 mvst-core.py -c mvst-dev.ini -- $@\n" )
+			fo.close()
+			self.qx("chmod +x %s" % filename)
+			print("done")
+
+			print("Now execute »%s start« to start the server." % filename)
+
+		else:
+			print("Error")
+
+
+	def getNewShortcutSkriptFilename(self, name = ""):
+		""" generates the filename and checks if the file already exists """
+		filename = "%smvst-%s.sh" % (self.getBinDir(), name)
+		if os.path.exists(filename):
+			filename = self.getNewShortcutSkriptFilename(name+"_")
+		return filename
 
 
 	### Server copy ###
@@ -534,8 +611,11 @@ class Mvst:
 
 	def getInstance(self):
 		""" Return the current instance value from the config """
-		return self.get("core","instance")
-
+		instance = self.get("core","instance")
+		if len(instance) < 1:
+			print("CRITICAL ERROR: No »instance« value found in ini-file!")
+		return instance
+		
 	def getSocket(self):
 		""" Return the current wrapper socket from the config """
 		return "%swrapper_%s.socket" % ( self.getTmpDir(), self.getInstance() ) 
@@ -649,6 +729,7 @@ class Mvst:
 	stop			Stops the server
 	status			Shows the status of the server
 	restart			Restarts the Server
+	force-kill		Send SIGTERM to the java process
 
 	log			Open the logfile with less
 	shell			Show the tail of the logfile and starts the minecraft shell
@@ -716,6 +797,7 @@ class Archive:
 
 		# sanitize the reason string
 		reason = reason.lower()
+		reason.replace(".", "_")
 		p = re.compile("[^a-z0-9_\-]+")
 		reason = p.sub("", reason)
 
@@ -1022,7 +1104,7 @@ class Remote:
 		
 		# check if user exists
 		if not ("remote-%s" % self.user) in self.mvst.getConfigArray():
-			print("You (%s) are not allowed to enter the remote shell!" % self.user)
+			print("You (%s) are not allowed to enter the remote shell of instance »%s«!" % (self.user, self.mvst.getInstance()) )
 			self.log.warning("User »%s« (%s) tried to login, but doesnt exist in the config ini!" % (self.user, remoteip))
 			exit(1)
 		# load configs for user
@@ -1069,11 +1151,13 @@ class Remote:
 		""" Change from the current remote session to another instance """
 		try:
 			print("change instance to %s" % instance)
-			home = self.mvst.getHomeDir()
+			home = self.mvst.getBinDir()
 			cmd = "python3 %smvst-core.py -c %smvst-%s.ini -- remote %s" % (home, home, instance, self.user)
-			print("cmd=%s" % cmd)
+			self.mvst.startShell(cmd)
 		except:
 			print("Error during change instance")
+			import traceback
+			traceback.print_exc(file=sys.stdout)
 
 
 	def executeCommand(self, command):
