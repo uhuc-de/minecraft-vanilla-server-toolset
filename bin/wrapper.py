@@ -167,7 +167,7 @@ class Broadcaster(object):
 					# Handle the case in which there is a new connection recieved through server_socket
 					sockfd, addr = self.server_socket.accept()
 					self.connections.append(sockfd)
-					self.log.debug("client connected")
+					#self.log.debug("client connected")
 				else:
 					# Data recieved from client
 					try:
@@ -188,7 +188,7 @@ class Broadcaster(object):
 					if data:
 						self.broadcast_data(data) 
 					else:
-						self.log.debug("client disconnected [no data]")
+						#self.log.debug("client disconnected [no data]")
 						sock.close()
 						self.connections.remove(sock)   
 
@@ -264,7 +264,10 @@ class Wrapper(object):
 				else:
 
 					o = "]:".join(output.split("]:")[1:]).strip()
-					self.log.info( "Server: %s" % o )
+					if len(o.strip()) == 0:
+						self.log.info( "Server-RAW: %s" % output )
+					else:
+						self.log.info( "Server: %s" % o )
 
 					try:
 						self.broadcaster.broadcast_data(output)
