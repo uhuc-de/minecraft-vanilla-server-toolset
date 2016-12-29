@@ -10,6 +10,7 @@ import logging	# used for logging
 import datetime # needed for date calculations
 import stat # used for chmod
 import getopt
+import datetime # used for current date
 
 import re # regex
 
@@ -668,7 +669,8 @@ class Mvst:
 
 	def getTracerDb(self):
 		""" Returns the path to the database of the tracer """
-		return "%stracer_data.sqlite" % self.getServerDir()
+		now = datetime.datetime.now().strftime("%Y-%m")
+		return "%stracer_data_%s.sqlite" % (self.getServerDir(), now)
 
 
 	### Common ###
@@ -1040,7 +1042,7 @@ class WrapperCtl:
 		cmd = "echo '%s' | %s %scontrol.py -s %s 2>> %s > /dev/null" % (message, self.mvst.getPython2(), self.mvst.getBinDir(), _socket, self.mvst.getLogfile())
 		r = self.mvst.qx(cmd)
 		
-		if r == "0":
+		if (r == "0") or (r == 0):
 			return 0
 		elif r == "2":
 			self.log.debug("Can't connect to socket (%s)" % _socket)
