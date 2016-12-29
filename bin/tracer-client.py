@@ -126,9 +126,7 @@ def main(argv):
 	## Check the variables and create the SQL query
 
 	# Check the variable x
-	if x == None:
-		x = 0
-	else:
+	if x != None:
 		try:
 			x = int(x)
 		except ValueError:
@@ -136,9 +134,7 @@ def main(argv):
 			usage()
 
 	# Check the variable z
-	if z == None:
-		z = 0
-	else:
+	if z != None:
 		try:
 			z = int(z)
 		except ValueError:
@@ -146,17 +142,20 @@ def main(argv):
 			usage()
 
 	# Check the variable r
-	try:
-		r = int(r)
-	except ValueError:
-		print("ERROR: r must be an integer!")
-
+	if (z != None) and (y != None):
+		try:
+			r = int(r)
+		except ValueError:
+			print("ERROR: r must be an integer!")
+			usage()
+		where_pos = "AND pos_z >= {0} AND pos_z <= {1} AND pos_x >= {2} AND pos_x <= {3}".format(z-r, z+r, x-r, x+r)
+	else:
+		where_pos = ""
 
 	sql = """SELECT time, uuid, dimension, pos_x, pos_y, pos_z 
 FROM positions 
-WHERE pos_z >= %s AND pos_z <= %s 
-AND pos_x >= %s AND pos_x <= %s
-""" % (z-r, z+r, x-r, x+r)
+WHERE id IS NOT NULL {0}
+""".format(where_pos)
 
 	# Check the variable d
 	if d:
@@ -263,9 +262,20 @@ def getRecordsFromDb(dbfile, sql):
 
 def makePrintable(t):
 	""" Makes the SQL-tubel printable """
-	return "%s %s \t(%s: %.1f / %.1f / %.1f)" % (getPrintTime(t[0]), t[1], t[2], t[3], t[4], t[5] )
+	return "%s %s \t(%s: %.1f / %.1f / %.1f)" % (getPrintTime(t[0]), t[1], getDimensionValue(t[2]), t[3], t[4], t[5] )
 
 
+def getDimensionValue(dim):
+	""" 
+	Returns the shortvalue of the dimension 
+	-1 is the Nether, 0 is the Overworld, 1 is the End
+	"""
+	if dim == "-1": # Nether
+		return "N"
+	elif dim == "1": # End
+		return "E"
+	else: # Overworld
+		return "O"
 
 def getPrintTime(unixtime):
 	""" Returns the Timeformat (YYYY-MM-DD) from the unixtime """
@@ -284,11 +294,12 @@ def getUserDictFromUserCache(usercache):
 	f.close()
 	return cache
 
-"""
-Check if the sqlite3file is valid
-credits to: http://stackoverflow.com/questions/12932607/
-"""
 def isSQLite3(filename):
+	"""
+	Check if the sqlite3file is valid
+	credits to: http://stackoverflow.com/questions/12932607/
+	"""
+
 	if not isfile(filename):
 		return False
 	if getsize(filename) < 100: # SQLite database file header is 100 bytes
