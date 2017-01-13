@@ -113,7 +113,7 @@ them and the wrapper
 class Broadcaster(object):
 
 	def __init__(self, wrapper, socketaddr, linebreak):
-		self.log = logging.getLogger('Broadcast')
+		self.log = logging.getLogger('broadcast')
 		self.wrapper = wrapper
 		self.socketaddr = socketaddr
 		self.linebreak = linebreak
@@ -188,7 +188,7 @@ class Broadcaster(object):
 					if data:
 						self.broadcast_data(data) 
 					else:
-						#self.log.debug("client disconnected [no data]")
+						self.log.debug("client disconnected [no data]")
 						sock.close()
 						self.connections.remove(sock)   
 
@@ -211,7 +211,7 @@ class Broadcaster(object):
 class Wrapper(object):
 
 	def __init__(self, mccommand, socket, linebreak):
-		self.log = logging.getLogger('Wrapper')
+		self.log = logging.getLogger('wrapper')
 
 		self.mccommand = mccommand
 		self.socketaddr = socket
