@@ -6,6 +6,7 @@ server/
 tmp/
 
 bin/__*
+bin/mvst/__pycache__
 bin/nbt/
 bin/minecraftd.default.sh
 bin/mvst-dev.sh
