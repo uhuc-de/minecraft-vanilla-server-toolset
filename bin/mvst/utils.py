@@ -26,6 +26,7 @@ class Utils:
 		self.config = config
 
 		self.log = logging.getLogger('Utils')
+		self.log.setLevel( 10*int(self.config.getLoglevel("utils")) )
 
 
 	### Force kill ###

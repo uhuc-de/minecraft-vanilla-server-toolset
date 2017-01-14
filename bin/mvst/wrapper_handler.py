@@ -23,6 +23,7 @@ class WrapperHandler:
 			print("CRITICAL: WrapperHandler.config ist not an instance of mvst.Config")
 		self.config = config
 		self.log = logging.getLogger('WrapperHandler')
+		self.log.setLevel( 10*int(self.config.getLoglevel("wrapper")) )
 
 		self.daemon = DaemonHandler(self.config, "wrapper")
 
@@ -42,7 +43,8 @@ class WrapperHandler:
 			# build the command
 			_wrapper = "%swrapper.py" % self.config.getBinDir()
 
-			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.config.getPython2(), _wrapper, self.config.getSocket(), self.config.getLoglevel(), self.config.getLogfile(), self.getJavaCommand() )
+			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.config.getPython2(), _wrapper, self.config.getSocket(), self.config.getLoglevel("wrapper"), self.config.getLogfile(), self.getJavaCommand() )
+			print(wrappercmd)
 			r = self.daemon.start(wrappercmd, self.config.getServerDir()) 
 			if r == 0:
 				print("Done")

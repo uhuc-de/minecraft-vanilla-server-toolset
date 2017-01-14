@@ -66,7 +66,7 @@ class Mvst:
 		_loglevel = int(self.configObj.get("core", "loglevel"))
 		_logfile = self.configObj.getLogfile()
 		logging.basicConfig(filename=_logfile,level=_loglevel,format=formatter)
-		self.log = logging.getLogger('Mvst')
+		self.log = logging.getLogger('mvst')
 
 
 	def start(self, args=None):

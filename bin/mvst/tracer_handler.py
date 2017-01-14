@@ -18,6 +18,7 @@ class TracerHandler:
 	def __init__(self, config):
 		self.config = config
 		self.log = logging.getLogger('TracerHandler')
+		self.log.setLevel( 10*int(self.config.getLoglevel("tracer")) )
 
 
 	def record(self):

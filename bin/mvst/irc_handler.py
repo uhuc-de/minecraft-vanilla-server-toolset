@@ -24,6 +24,7 @@ class IrcHandler:
 			exit(1)
 		self.config = config
 		self.log = logging.getLogger('IrcHandler')
+		self.log.setLevel( 10*int(self.config.getLoglevel("irc")) )
 
 		self.daemon = DaemonHandler(self.config, "irc")
 		self.wrapper = WrapperHandler(self.config)
@@ -65,8 +66,9 @@ class IrcHandler:
 		else:
 			_instance = self.config.getInstance()
 
-			irccmd = "%s -- %sirc.py -l %s -r %s -n %s %s %s %s" \
-						%(self.config.getPython2(), self.config.getBinDir(), self.config.getLogfile(), \
+			irccmd = "%s -- %sirc.py -l %s -v %s -r %s -n %s %s %s %s" \
+						%(self.config.getPython2(), self.config.getBinDir(), \
+						self.config.getLogfile(), self.config.getLoglevel("irc"),
 						self.config.get("irc","realname"), self.config.get("irc","nick"), \
 						self.config.getSocket(), self.config.get("irc","host"), self.config.get("irc","channel"))
 

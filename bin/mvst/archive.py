@@ -24,6 +24,7 @@ class Archive:
 			print("CRITICAL: Backup.config ist not an instance of mvst.Config")
 		self.config = config
 		self.log = logging.getLogger('Archive')
+		self.log.setLevel( 10*int(self.config.getLoglevel("archive")) )
 
 		self.wrapper = WrapperHandler(self.config)
 

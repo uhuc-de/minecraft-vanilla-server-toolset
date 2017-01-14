@@ -24,6 +24,7 @@ class DaemonHandler:
 		self.name = name
 
 		self.log = logging.getLogger('DaemonHandler')
+		self.log.setLevel( 10*int(self.config.getLoglevel("daemon")) )
 
 
 	def start(self, cmd, chdir):

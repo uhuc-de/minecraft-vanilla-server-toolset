@@ -90,6 +90,17 @@ class Config:
 		return self.get("core", "loglevel")
 
 
+	def getLoglevel(self, submodule = "core"):
+		""" Returns the current loglevel of the given submodule """
+		try:
+			loglevel = self.get(submodule, "loglevel")
+		except:
+			loglevel = ""
+		if len(loglevel) < 1:
+			return self.getLoglevel()
+		else:
+			return loglevel
+
 	### Directory getters ###
 
 

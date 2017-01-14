@@ -25,6 +25,8 @@ class Remote:
 		self.config = config
 
 		self.log = logging.getLogger('Remote')
+		self.log.setLevel( 10*int(self.config.getLoglevel("remote")) )
+		
 		self.user = username
 
 
@@ -97,7 +99,6 @@ class Remote:
 		""" Executes the given command inside the mvst """
 		self.log.info("Execute (%s): %s" % (self.user, " ".join(command_arr)) )
 		cmd = "python3 {0}mvst-core.py -c {0}mvst-{1}.ini -- {2}".format(self.config.getBinDir(), self.config.getInstance(), " ".join(command_arr))
-		print("EXEC: "+cmd)
 		Core.qx(cmd, Core.QX_SHELL)
 
 
