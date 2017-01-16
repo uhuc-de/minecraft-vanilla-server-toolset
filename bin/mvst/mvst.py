@@ -27,40 +27,19 @@ class Mvst:
 	processes and loads the config.
 	"""
 
-	def __init__(self, argv):
+	def __init__(self, argv, configfile):
 		"""
 		init function of the mvst-core
 		"""
 		# Variables
-		self.__argv = ""
-		
+		self.__argv = argv
 
-		# Check if valid arguments
-		if len(argv) < 4:
-			print("to few arguments")
-			Core.usage()
+		self.configObj = Config(configfile)
+		if self.configObj == None:
+			print("Config file »%s« not found!" % argv[1])
+			exit(1)
 
-		# getopt
-		try:
-			opts, args = getopt.getopt(argv, "hc:", ["help"] )	# Option with ":" need an Argument
-		except getopt.GetoptError:
-			print("Unknown arguments.")
-			Core.usage()
 
-		for opt, arg in opts:
-			if opt in ("-h", "--help"):
-				Core.usage()
-			elif opt in "-c":
-				self.configObj = Config(arg)
-				if self.configObj == None:
-					print("Config file »%s« not found!" % argv[1])
-					exit(1)
-			else:
-				print("unknown argument!")
-				Core.usage()
-
-		self.__argv = argv[argv.index("--")+1:]
-		
 		# init log
 		formatter = '%(asctime)s|%(name)s|%(levelname)s|%(message)s'
 		_loglevel = int(self.configObj.get("core", "loglevel"))
@@ -190,6 +169,6 @@ class Mvst:
 			pass
 
 if __name__ == "__main__":
-	m = Mvst(sys.argv[1:])
+	m = Mvst(sys.argv[1], sys.argv[2:])
 	exit(m.start())
 
