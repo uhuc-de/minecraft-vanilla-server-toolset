@@ -5,6 +5,7 @@
 import os
 import time
 import logging	# used for logging
+import traceback
 
 
 from .core_functions import CoreFunctions as Core
@@ -181,8 +182,7 @@ class Utils:
 
 		# write current version to file
 		cmd = "echo %s > \"%sversion\"" % (version, self.config.getServerDir())
-		print (cmd)
-		print( Core.qx(cmd, Core.QX_RETURNCODE ) )
+		return Core.qx(cmd, Core.QX_RETURNCODE ) 
 
 
 	### Overviewer ###
@@ -302,30 +302,20 @@ class Utils:
 			Core.echo("(3/3) create shortcut shell... ")
 			filename = self.getNewShortcutSkriptFilename( self.config.getInstance() )
 			fo = open(filename, "w")
-			raw="""#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-
-import sys
-from mvst.Mvst import Mvst
-
-if __name__ == "__main__":
-	m = Mvst(sys.argv[1:])
-	exit(m.start())
-"""
-			fo.write( "#!/bin/bash\n\npython3 mvst-core.py -c mvst-dev.ini -- $@\n" )
+			raw = """#!/usr/bin/python3\n# -*- coding: utf-8 -*-\nimport sys\nfrom mvst.mvst import Mvst\nm = Mvst(sys.argv[1:], "mvst-{0}.ini")\nexit(m.start())""".format(self.config.getInstance())
+			fo.write( raw )
 			fo.close()
 			Core.qx("chmod +x %s" % filename, Core.QX_RETURNCODE)
-			print("done")
-
+			print("done") 
 			print("Now execute »%s start« to start the server." % filename)
-
+			return 0
 		else:
 			print("Error")
 
 
 	def getNewShortcutSkriptFilename(self, name = ""):
 		""" generates the filename and checks if the file already exists """
-		filename = "%smvst-%s.sh" % (self.getBinDir(), name)
+		filename = "%smvst-%s.py" % (self.config.getBinDir(), name)
 		if os.path.exists(filename):
 			filename = self.getNewShortcutSkriptFilename(name+"_")
 		return filename

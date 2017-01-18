@@ -22,9 +22,9 @@ class Config:
 			exit(1)
 
 		# Load Mapname
-		self.mapname = self.loadMapName()
+		self.mapname = self.loadMapName(retry=True)
 		if self.mapname == "":
-			print("Can't load the mapname from the server.properties in {0}!".format(self.getServerDir))
+			print("Can't load the mapname from {0}server.properties!".format(self.getServerDir()))
 			exit(1)
 
 
@@ -46,15 +46,16 @@ class Config:
 		return config
 
 
-	def get(self, section, key):
+	def get(self, section, key, print_error=True):
 		"""
 		Gets the value from a key from the config or throws an error
 		"""
 		c = self.__config[section].get(key)
 		if c == None:
-			errmsg = "key »%s« inside the config section »%s« not found" % (key, section)
-			#TODO self.log.critical(errmsg)
-			print (errmsg)
+			if (print_error):
+				errmsg = "key »%s« inside the config section »%s« not found" % (key, section)
+				self.log.warning(errmsg)
+				print (errmsg)
 			return ""
 		return c
 
@@ -93,7 +94,7 @@ class Config:
 	def getLoglevel(self, submodule = "core"):
 		""" Returns the current loglevel of the given submodule """
 		try:
-			loglevel = self.get(submodule, "loglevel")
+			loglevel = self.get(submodule, "loglevel", False)
 		except:
 			loglevel = ""
 		if len(loglevel) < 1:
@@ -133,12 +134,16 @@ class Config:
 		""" Return the current log dir """
 		return "%slogs/" % self.getHomeDir()
 
-
-
-	def loadMapName(self):
+	def loadMapName(self, retry=False):
 		""" Parses the mapname out of the current server.properties """
-		cmd = "grep \"level-name\" \"%sserver.properties\" | cut -d \"=\" -f 2" % self.getServerDir()
-		return Core.qx(cmd, Core.QX_OUTPUT)
+		propfile = "{0}server.properties".format(self.getServerDir())
+		cmd = "grep \"level-name\" \"{0}\" | cut -d \"=\" -f 2".format(propfile)
+		level_name = Core.qx(cmd, Core.QX_OUTPUT)
+		if level_name == "" and retry == True:
+			cmd = "echo \"level-name=world\" >> {0}".format(propfile)
+			Core.qx(cmd, Core.QX_RETURNCODE)
+			level_name = self.loadMapName()
+		return level_name
 
 	def getMapName(self):
 		""" Returns the name of the map """

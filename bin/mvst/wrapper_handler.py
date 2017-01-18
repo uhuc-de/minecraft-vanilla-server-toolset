@@ -34,6 +34,11 @@ class WrapperHandler:
 		Return 0 by success
 		and 1 by failure
 		"""
+
+		if not self.getEulaStatus():
+			print("You need to accept the EULA in {0}eula.txt".format(self.config.getServerDir()))
+			exit(1)
+		
 		Core.echo("Start minecraft-server...")
 
 		if self.isRunning():
@@ -44,7 +49,7 @@ class WrapperHandler:
 			_wrapper = "%swrapper.py" % self.config.getBinDir()
 
 			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.config.getPython2(), _wrapper, self.config.getSocket(), self.config.getLoglevel("wrapper"), self.config.getLogfile(), self.getJavaCommand() )
-			print(wrappercmd)
+
 			r = self.daemon.start(wrappercmd, self.config.getServerDir()) 
 			if r == 0:
 				print("Done")
@@ -189,3 +194,12 @@ class WrapperHandler:
 		""" Returns the daemon """
 		return self.daemon
 
+
+	def getEulaStatus(self):
+		"""
+		Returns the status of the EULA agreement in the server directory
+		1 if the status is not "false"
+		0 if the status is "false"
+		"""
+		cmd = "grep -q false {0}{1}".format(self.config.getServerDir(), "eula.txt");
+		return Core.qx(cmd, Core.QX_RETURNCODE)
