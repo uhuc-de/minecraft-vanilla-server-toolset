@@ -56,16 +56,17 @@ Installation:
 * clone the git-repo into the directory you wanna have the mvst (eg. ~/ )
 * rename the git-repo to »mvst« (optional)
 * change to the »bin« directory of the MVST
-* copy the mvst-default.ini to mvst-<INSTANCENAME>.ini and edit it, till it fits your needs
-* run »$ python3 mvst-core.py -c mvst-<INSTANCENAME>.ini -- install <VERSION>« to create the directories of the instance and download the minecraft_server.jar in the given version (eg. »$ python3 mvst-core.py -c mvst-myinstance.ini -- install 1.10.3«)
-* you can now use the shortcut script (eg. »mvst-myinstance.sh«) to control your instance
+* copy the mvst-default.ini to mvst-INSTANCENAME.ini and edit it, till it fits your needs
+* run »$ python3 install_instance.py mvst-INSTANCENAME.ini install VERSION« to create the directories of the instance and download the minecraft_server.jar in the given version (eg. »$ python3 install_instance.py mvst-myinstance.ini install 1.10.3«)
+* you can now use the shortcut script (eg. »mvst-myinstance.py«) to control your instance
 * change to the directory mvst/server/default/ and edit the server.properties if you need to
+* accept the eula.txt in the server directory
 
 To test your settings: start the server, stop it and check the log with the shortcut script:
 
-	$ ./mvst-<INSTANCENAME>.sh start
-	$ ./mvst-<INSTANCENAME>.sh stop
-	$ ./mvst-<INSTANCENAME>.sh log
+	$ ./mvst-INSTANCENAME.py start
+	$ ./mvst-INSTANCENAME.py stop
+	$ ./mvst-INSTANCENAME.py log
 
 Now your server should be usable!
 
@@ -74,7 +75,7 @@ Now your server should be usable!
 
 If you want to log the movements of every player every minute on your server you should add to your crontab:
 
-	* * * * * /path/to/shortcut.sh tracer
+	* * * * * /path/to/mvst-INSTANCENAME.py tracer
 
 Use »shortcut.sh tracer-client« to read out the sqlite file.
 
@@ -82,13 +83,13 @@ Use »shortcut.sh tracer-client« to read out the sqlite file.
 
 Write to the crontab:
 
-	0 0 * * * /path/to/shortcut.sh backup daily
+	0 0 * * * /path/to/mvst-INSTANCENAME.py backup daily
 
 ### render the overviewer
 
 If you want to have an updated overviewer map every 3 hours, write to the crontab:
 
-	0 */3 * * * /path/to/shortcut.sh overviewer
+	0 */3 * * * /path/to/mvst-INSTANCENAME.py overviewer
 
 You must create a settings.py for minecraft-overviewer and name the path in the INI-file of the instance
 
@@ -97,7 +98,7 @@ Usage:
 ------------------
 
 
-	Usage: python3 mvst-core.py -c {ini-file} -- {command} <options>
+	Usage: mvst-INSTANCENAME.py {command} <options>
 
 	Command:
 		start			Starts the server
@@ -125,10 +126,19 @@ Usage:
 		remote <user>		Start a remote session with the given user
 
 
+	Loglevels:
+		CRITICAL	5
+		ERROR		4
+		WARNING		3
+		INFO		2
+		DEBUG		1
+
+
+
 Multiple instances:
 -------------------
 
-If you want to have more than one server instance, then you need to copy the ini-file and execute the install command
+If you want to have more than one server instance, then you need to copy the ini-file and execute the install command for this ini-file
 
 
 Modules:
