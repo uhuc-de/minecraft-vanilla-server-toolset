@@ -10,6 +10,7 @@ import re # regex
 from .core_functions import CoreFunctions as Core
 from .config import Config
 from .wrapper_handler import WrapperHandler
+from .reports import Reports
 
 
 class Archive:
@@ -181,45 +182,71 @@ class Archive:
 		return Core.qx(cmd, Core.QX_RETURNCODE)
 
 
-	def restore(self):
-		""" Restores the map from a Backupfile """
-		pass
-#
-# do_restore() {
-# 	if [[ -z "$1" ]]; then
-# 		echo "List the latest backups:"
-# 		ls -1 ${_DIR_BACKUP}/*.tar.bz2 | xargs -n1 basename | tail -n 11 | head -n 10
-# 		exit 0
-# 	fi
-#
-# 	# validate backup file
-# 	i=$(cd ${_DIR_BACKUP}/; md5sum --quiet -c ${1}.md5)
-# 	ret=$?
-# 	if [[ $ret -eq 0 ]]; then
-# 		echo "md5 Check passed"
-# 	else
-# 		echo "Given file failed md5sum check!"
-# 		exit 1
-# 	fi
-#
-# 	log "restore" $_INFO "Perform restore of backup \"${1}\""
-# 	echo "Backup before restore"
-# 	do_backup "restore"
-#
-# 	echo -n "Restore backup \"$1\"..."
-# 	tar --overwrite -xjf ${_DIR_BACKUP}/${1} -C ${_DIR_SERVER}
-# 	ret=$?
-# 	if [[ $ret -eq 0 ]]; then
-# 		echo " successfull!"
-# 		log "restore" $_INFO "Restoring of backup \"${1}\" successfull"
-# 	else
-# 		echo " failed!"
-# 		log "restore" $_ERROR "Restoring of backup \"${1}\" failed!"
-# 		exit 1
-# 	fi
-#
-#
-# }
+	def restoreList(self):
+		""" Lists all backups and let the user selects one """
+		reports = Reports(self.config)
+		backups = reports.getFilelistOfDirectory(self.config.getBackupDir(), "\.tar\.bz2$")
+		result = reports.viewList(backups, selectline="Restore backup")
+		if result:
+			self.restore(backups[result])
+
+
+	def restore(self, filename):
+		""" Restores the server directory from a tar.bz2-file in the backupdir """
+		print("\nRestoring %s ..." % filename)
+		self.log.info("Restoring %s ..." % filename)
+
+		backupfile = "{0}{1}".format(self.config.getBackupDir(), filename)
+		if not os.path.isfile(backupfile):
+			print("No Backupfile named »{0}« found in {1}.".format(filename, self.config.getBackupDir()))
+			return 1
+
+		if not os.path.isfile(backupfile+".md5"):
+			print("No MD5-file named »{0}.md5« found in {1}.".format(filename, self.config.getBackupDir()))
+			return 1
+
+		# validate backup
+		cmd = "md5sum %s | awk '{print $1}'" % backupfile
+		md5_current = Core.qx(cmd, Core.QX_OUTPUT)
+		cmd = "cat %s.md5 | awk '{print $1}'" % backupfile
+		md5_file = Core.qx(cmd, Core.QX_OUTPUT)
+
+		if md5_current != md5_file:
+			print("Error: MD5sum is wrong! Abort restore.")
+			return 1
+
+		# check if the server is running and shut it down
+		restart_again = 0
+		if self.wrapper.isRunning():
+			restart_again = 1
+			if self.wrapper.stop("Server is going to restart and restore backup »%s« ..." % filename):
+				self.log.error("Cant stop server during restore!")
+				return 1
+
+		# create a new backup
+		self.backup("restore")
+
+		# empty the server directory
+		if len(self.config.getServerDir()) > 3:
+			cmd = "rm -Rf {0}*".format(self.config.getServerDir())
+			if Core.qx(cmd, Core.QX_RETURNCODE):
+				self.log.error("Cant clean server directory before extracting! Abort restore.")
+				return 1
+
+		# extract the backupfile
+		cmd = "tar --overwrite -xjf {0} -C {1}".format(backupfile, self.config.getServerDir())
+		print (cmd)
+		if Core.qx(cmd, Core.QX_RETURNCODE):
+			self.log.error("Cant extract the backupfile! Restore incomplete!")
+			return 1
+
+		self.log.info("Restoring successfull.")
+
+		# start the server again
+		if restart_again == 1:
+			if self.wrapper.start():
+				self.log.error("Cant start the server again after the restore!")
+
 
 
 	### Others ###

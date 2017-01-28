@@ -134,9 +134,18 @@ class Mvst:
 				remote = Remote(self.configObj, args[0])
 				return remote.start()
 
+			# Archive
+
 			elif x == "backup":
 				archive = Archive(self.configObj)
 				return archive.backup(args_str)
+
+			elif x == "restore":
+				archive = Archive(self.configObj)
+				if len(args_str) > 0:
+					return archive.restore(args_str)
+				else:
+					return archive.restoreList()
 
 			# Utils
 

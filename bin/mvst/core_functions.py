@@ -96,7 +96,7 @@ class CoreFunctions(object):
 	whitelist <user> 	Perform backup and add <user> to whitelist
 
 	backup <reason>		Backups the server
-	(restore [backup]	Restore a specific backup)
+	restore (backup)	Restore a specific backup
 
 	overviewer		Renders the overviewer map
 	irc <start|stop|restart|status>	Controls the irc-bridge

@@ -3,6 +3,7 @@
 
 
 import os
+import re
 
 from .core_functions import CoreFunctions as Core
 from .config import Config
@@ -55,11 +56,15 @@ class Reports(object):
 			self.viewFile(directory+filelist[selected], fromBottom)
 
 
-	def getFilelistOfDirectory(self, directory):
+	def getFilelistOfDirectory(self, directory, filtering = None, limit = None):
 		""" Returns a list of files inside given directory """
-		cmd = "ls -1 %s" % directory
+		r = re.compile(r"%s" % filtering)
+		cmd = "ls -1 {0}".format(directory)
 		filelist = Core.qx(cmd, 3).split("\n")
-		filelist = list(filter(None, filelist)) 
+		#filelist = list(filter(r.match(), filelist)) 
+		filelist = list(filter(r.search, filelist))
+		if limit:
+			return filelist[0:limit]
 		return filelist
 
 

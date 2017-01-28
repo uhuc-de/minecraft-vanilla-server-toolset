@@ -116,6 +116,7 @@ Usage:
 		tracer-client	Reads the players position and filters them
 
 		backup <reason>		Backups the server
+		restore (backupfile)	Restores a backup
 
 		overviewer		Renders the overviewer map
 		irc <start|stop|restart|status>	Controls the irc-bridge
