@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 
@@ -171,8 +171,8 @@ class Broadcaster(object):
 				else:
 					# Data recieved from client
 					try:
-						data = sock.recv(self.buffersize) 
-						text = data.strip().decode("UTF-8")
+						text = self.receive(sock)
+
 						if len(text) > 0:
 							self.log.debug("input=%s" % text)
 							self.wrapper.write(text)
@@ -185,6 +185,7 @@ class Broadcaster(object):
 						self.connections.remove(sock)
 						continue
 
+					data = text
 					if data:
 						self.broadcast_data(data) 
 					else:
@@ -207,6 +208,13 @@ class Broadcaster(object):
 		if len(text) > 0:
 			self.log.debug("input=%s" % text)
 			self.wrapper.write(text)
+
+	def receive(self, socket):
+		""" receives the data from a socket """
+		data = socket.recv(self.buffersize)
+		text = data.strip().decode("UTF-8")
+		return text
+
 
 class Wrapper(object):
 
@@ -234,7 +242,7 @@ class Wrapper(object):
 	# ^C Handling
 	def sighandler(self, signum, frame):
 		self.log.info("Received SIGINT: Shutdown.")
-		self.process.stdin.write("stop".encode("utf-8") + self.linebreak)
+		self.write("stop")
 
 	"""
 	Starts the minecraft server and the broadcast for potential clients.
@@ -248,16 +256,21 @@ class Wrapper(object):
 		self.log.debug("Starting Wrapper... (%s)" % self.mccommand)
 
 		# XXX: DEBUG:Wrapper:ERROR: parsing Error: Unable to access jarfile minecraft_server.jar.1.7.9
-		self.process = Popen(self.mccommand, stdin=self.sin, stdout=self.sout, stderr=self.serr, cwd=os.getcwd(), shell=True)
+		self.process = Popen(\
+				self.mccommand, \
+				stdin=self.sin, stdout=self.sout, stderr=self.serr, \
+				cwd=os.getcwd(), shell=True,
+				universal_newlines=True \
+				)
+
 		self.mcrunning = True
 		self.log.debug("Starting Wrapper... done")
 
-		
 		## main loop
 		while self.mcrunning:
 			try:
-				output = self.process.stdout.readline().decode("utf-8")
-				output = output.strip()
+				output = self.read(self.process.stdout)
+				
 				if output == "": 
 					self.log.debug("wrapper readline is empty")
 					self.mcrunning = False
@@ -271,12 +284,11 @@ class Wrapper(object):
 
 					try:
 						self.broadcaster.broadcast_data(output)
-					except:			
+					except:
 						self.log.error("parsing %s" % output )
 						self.log.debug( traceback.print_exc() )	
-						pass			
-				
-				
+						pass
+
 			except IOError:
 				self.log.error("IOError.. shutdown")
 				self.running = False
@@ -286,11 +298,28 @@ class Wrapper(object):
 		self.broadcaster.close()
 		self.log.info("..:: Goodbye ::..")
 
-	""" Sends "inp" to the server """
-	def write(self, inp):
-		s = unicode(inp + self.linebreak)
-		self.process.stdin.write(s.encode("utf-8"))
 
+	def read(self, stdout):
+		""" Read from the given stdin """
+		try:
+			line = stdout.readline()
+			if not isinstance(line, str):
+				line = line.decode("utf-8")
+			line = line.strip()
+			return line
+		except:
+			self.log.error("Error in Wrapper.read()")
+			return ""
+
+
+	def write(self, msg):
+		""" Sends msg to the server """
+		try:
+			self.process.stdin.write("{0}{1}".format(msg, self.linebreak))
+			self.process.stdin.flush()
+		except:
+			print(traceback.print_exc())
+			print("exception write(). msg=%s" % msg)
 
 
 if __name__ == '__main__':
