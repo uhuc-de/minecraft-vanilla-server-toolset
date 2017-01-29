@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 import socket, select, string, sys, getopt, traceback
@@ -68,7 +68,7 @@ try :
 except:
 	if not check:
 		sys.stdout.write("can't connect to socket: %s\n" % socketfile)
-		print("Unexpected error: %s" % e)
+		#print("Unexpected error: %s" % e)
 	sys.exit(2)
 
 if check:
@@ -102,15 +102,14 @@ else:
 						print('\nDisconnected from socket')
 						connected = False
 					else :
-						#print data
 						if data != "" and data.strip() != lastsend.strip():
 							sys.stdout.write(data.decode("UTF-8").strip()+"\n")
 							prompt()
 						
 				else :
 					msg = sys.stdin.readline()
-					lastsend = msg
-					client.send(msg)
+					lastsend = msg.encode("UTF-8")
+					client.send(msg.encode("UTF-8"))
 					prompt()
 
 	except KeyboardInterrupt:
