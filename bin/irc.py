@@ -1,4 +1,4 @@
-#!/bin/env python2
+#!/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys
@@ -112,15 +112,15 @@ class IrcBridge(object):
 			# connect to IRC
 			self.ircSocket = socket.socket()
 			self.ircSocket.connect((self.host, self.port))
-			self.ircSocket.send("NICK %s\r\n" % self.nick)
-			self.ircSocket.send("USER %s %s bla :%s\r\n" % (self.ident, self.host, self.realname) )
+			self.sendToIrcRaw("NICK %s" % self.nick)
+			self.sendToIrcRaw("USER %s %s bla :%s" % (self.ident, self.host, self.realname) )
 			return True
 		except:
 			if traceback.print_exc():
 				self.log.critical(traceback.print_exc())
-				sys.exit(2)
+				exit(2)
 			else:
-				sys.exit(0)
+				exit(0)
 
 
 	def connectMcSocket(self):
@@ -128,16 +128,16 @@ class IrcBridge(object):
 		try:
 			if not os.path.exists(self.socketfile): 
 				logging.critical("CRITICAL: socketfile not found: %s" % self.socketfile)
-				sys.exit(2)
+				exit(2)
 
 			self.mvstSocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 			self.mvstSocket.connect(self.socketfile)
 		except:
 			if traceback.print_exc():
 				self.log.critical(traceback.print_exc())
-				sys.exit(2)
+				exit(2)
 			else:
-				sys.exit(0)
+				exit(0)
 
 
 	def processIrcInput(self, inSock):
@@ -146,26 +146,26 @@ class IrcBridge(object):
 		lastline = ""
 		try:
 			readbuffer=readbuffer+inSock.recv(1024).decode("UTF-8", errors='replace')
-			temp=string.split(readbuffer, "\n")
+			temp=readbuffer.split("\n")
 			readbuffer=temp.pop( )
 
 			# process line by line
 			for line in temp:
 				lastline = line
-				line=string.rstrip(line)
-				line=string.split(line)
+				line=line.rstrip()
+				line=line.split()
 				
 				try:
 
 					if(line[0]=="PING"): # simple ping → pong back
-						self.ircSocket.send("PONG %s\r\n" % line[1])
+						self.sendToIrcRaw("PONG %s" % line[1])
 
 					elif (line[1]=="001"):
-						self.ircSocket.send("JOIN #%s\r\n" % self.channel)
+						self.sendToIrcRaw("JOIN #%s" % self.channel)
 
 					elif (line[1]=="433"): # nick already in use
 						self.log.critical("Nickname \"%s\"is already in use. Exit." % self.nick)
-						sys.exit(3)
+						return 3
 
 					elif (line[1]=="372"): # motd
 						pass 
@@ -185,12 +185,15 @@ class IrcBridge(object):
 				except IndexError:
 					self.log.debug("IndexError with: %s" % line)
 
+		except ConnectionError:
+			self.log.error("Connection reset by peer (irc socket). Exiting.")
+			return 3
+
 		except:
-			self.log.critical("error in processIrcInput() - last input:")
-			self.log.critical(lastline)
+			self.log.critical("unknown error in processIrcInput() - last input: %s" % lastline)
 			if traceback.format_exc():
 				self.log.critical(traceback.format_exc())
-				sys.exit(3)
+				return 3
 
 
 	def processMcInput(self, inSock):
@@ -200,8 +203,7 @@ class IrcBridge(object):
 			data = inSock.recv(1024)
 			lastline = data
 			if len(data) == 0:
-				self.log.critical("minecraft socket closed -> exit")
-				sys.exit(3)
+				raise ConnectionError
 
 			text = data.strip().decode("UTF-8", errors='replace')
 
@@ -230,20 +232,30 @@ class IrcBridge(object):
 				except: # not a /me neither... drop it
 					pass
 
+		except ConnectionError:
+			self.log.error("Connection reset by peer (mc socket). Exiting.")
+			return 3
+
 		except:
-			self.log.error("error in processMcInput() - last input: %s" % lastline)
+			self.log.critical("unknown error in processMcInput() - last input: %s" % lastline)
 			if traceback.format_exc():
 				self.log.critical(traceback.format_exc())
-				sys.exit(3)
+				return 3
+
+
+	def sendToIrcRaw(self, msg):
+		""" Sends a raw string to the irc server """
+		msg = msg+"\r\n"
+		self.ircSocket.send(msg.encode('utf-8'))
 
 
 	def sendToIrc(self, msg):
 		""" Sends the text to the irc server """
 		# split text, max irc msg length is 512
 		for text in self.chunkstring(msg, 400):
-			msg = "PRIVMSG #%s :%s%s" % (self.channel, text, "\r\n")
+			msg = "PRIVMSG #%s :%s" % (self.channel, text)
 			self.log.debug("to irc: %s" % msg)
-			self.ircSocket.send( msg.encode("utf-8", errors='replace')  )
+			self.sendToIrcRaw(msg)
 
 
 	def sendToMc(self, msg):
@@ -252,7 +264,8 @@ class IrcBridge(object):
 		for text in self.chunkstring(msg, 240):
 			text = "/say "+text
 			self.log.debug("to mc: %s" % text)
-			self.mvstSocket.send( text.encode("utf-8", errors='replace') )
+			print("to mc: %s" % text)
+			self.mvstSocket.send( text.encode('utf-8') )
 
 
 	def chunkstring(self, string, length):
@@ -290,13 +303,19 @@ class IrcBridge(object):
 
 				for inSock in read_sockets:
 
+					ret = 0
 					if inSock == self.mvstSocket: 
-						self.processMcInput(inSock)
+						ret = self.processMcInput(inSock)
 					elif inSock == self.ircSocket: 
-						self.processIrcInput(inSock)
-
+						ret = self.processIrcInput(inSock)
 					else:
 						self.log.warning("unknown Socket - should not happen 0_o")
+
+					# returncode 3 means "connection reset by peer"
+					if ret == 3:
+						for s in socketlist:
+							s.close()
+						self.running = False
 
 		except KeyboardInterrupt:
 			self.log.info("Keyboard interrupt: quitting")
