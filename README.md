@@ -29,8 +29,7 @@ Install the dependencies of the toolset:
 
 ### Core functionality
 
-* python 2.7
-* python 3
+* python >3.3
 * start-stop-daemon
 * tar
 * java
