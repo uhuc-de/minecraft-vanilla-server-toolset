@@ -4,6 +4,7 @@
 
 import os
 import configparser # needed to load the Config
+import logging	# used for logging
 
 from .core_functions import CoreFunctions as Core
 
@@ -20,6 +21,8 @@ class Config:
 		if self.__config == None:
 			print("Config file »%s« not found!" % configfile)
 			exit(1)
+
+		self.log = logging.getLogger('config')
 
 		# Load Mapname
 		self.mapname = self.loadMapName(retry=True)
@@ -81,6 +84,10 @@ class Config:
 	def getPython2(self):
 		""" returns the path to the python2 bin """
 		return self.get("bins", "python2")
+
+	def getPython3(self):
+		""" returns the path to the python3 bin """
+		return self.get("bins", "python3")
 
 	def getLogfile(self):
 		""" Return the current logfile value from the config """

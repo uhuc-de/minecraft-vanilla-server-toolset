@@ -48,7 +48,7 @@ class WrapperHandler:
 			# build the command
 			_wrapper = "%swrapper.py" % self.config.getBinDir()
 
-			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.config.getPython2(), _wrapper, self.config.getSocket(), self.config.getLoglevel("wrapper"), self.config.getLogfile(), self.getJavaCommand() )
+			wrappercmd = "%s -- %s -s %s -v %s -l %s --- %s" % (self.config.getPython3(), _wrapper, self.config.getSocket(), self.config.getLoglevel("wrapper"), self.config.getLogfile(), self.getJavaCommand() )
 
 			r = self.daemon.start(wrappercmd, self.config.getServerDir()) 
 			if r == 0:

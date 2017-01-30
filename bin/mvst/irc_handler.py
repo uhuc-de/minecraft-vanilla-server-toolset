@@ -67,7 +67,7 @@ class IrcHandler:
 			_instance = self.config.getInstance()
 
 			irccmd = "%s -- %sirc.py -l %s -v %s -r %s -n %s %s %s %s" \
-						%(self.config.getPython2(), self.config.getBinDir(), \
+						%(self.config.getPython3(), self.config.getBinDir(), \
 						self.config.getLogfile(), self.config.getLoglevel("irc"),
 						self.config.get("irc","realname"), self.config.get("irc","nick"), \
 						self.config.getSocket(), self.config.get("irc","host"), self.config.get("irc","channel"))
