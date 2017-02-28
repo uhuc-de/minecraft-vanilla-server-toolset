@@ -177,6 +177,11 @@ class Mvst:
 		except KeyboardInterrupt:
 			pass
 
+		except IndexError:
+			print("This parameter needs more arguments!")
+			Core.usage()
+
+
 if __name__ == "__main__":
 	m = Mvst(sys.argv[1], sys.argv[2:])
 	exit(m.start())
